@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Main HDMI CEC MQTT bridge module
 
 Raises:
     ValueError: Invalid config value
     ConnectionError: Failed to connect to MQTT brocker
 """
+import argparse
 import configparser as ConfigParser
 import logging
 import os
 import threading
 import time
-import argparse
+
 import paho.mqtt.client as mqtt
 
 from cec_mqtt_bridge import hdmicec
-from cec_mqtt_bridge import lirc_if
 
 LOGGER = logging.getLogger('bridge')
 
@@ -31,29 +30,27 @@ DEFAULT_CONFIGURATION = {
         'tls': 0,
     },
     'cec': hdmicec.DEFAULT_CONFIGURATION,
-    'ir': lirc_if.DEFAULT_CONFIGURATION,
 }
 
 
 class Bridge:
     """Main bridge class"""
+
     def __init__(self, config: dict):
         self.config = config
 
-        # Do some checks
-        if (int(self.config['cec']['enabled']) != 1) and \
-                (int(self.config['ir']['enabled']) != 1):
-            raise ValueError('IR and CEC are both disabled. Can\'t continue.')
-
-        def mqtt_on_message(client: mqtt, userdata, message):
+        def mqtt_on_message(client: mqtt.Client, userdata, message):
             """Run mqtt callback in a seperate thread."""
             thread = threading.Thread(
-                target=self.mqtt_on_message, args=(client, userdata, message))
+                target=self.mqtt_on_message,
+                args=(client, userdata, message),
+                daemon=True,
+            )
             thread.start()
 
         # Setup MQTT
         LOGGER.info("Initialising MQTT...")
-        self.mqtt_client = mqtt.Client(self.config['mqtt']['name'])
+        self.mqtt_client = mqtt.Client(client_id=self.config['mqtt']['name'])
         self.mqtt_client.on_connect = self.mqtt_on_connect
         self.mqtt_client.on_message = mqtt_on_message
         if self.config['mqtt']['user']:
@@ -62,6 +59,7 @@ class Bridge:
                 password=self.config['mqtt']['password'])
         if int(self.config['mqtt']['tls']) == 1:
             self.mqtt_client.tls_set()
+
         self.mqtt_client.will_set(
             self.config['mqtt']['prefix'] + '/bridge/status', 'offline', qos=1,
             retain=True)
@@ -88,19 +86,13 @@ class Bridge:
         self.mqtt_client.loop_start()
 
         # Setup HDMI-CEC
-        if int(self.config['cec']['enabled']) == 1:
-            LOGGER.info("Initialising CEC...")
-            self.cec_class = hdmicec.HdmiCec(
-                port=self.config['cec']['port'],
-                name=self.config['cec']['name'],
-                devices=[
-                    int(x) for x in self.config['cec']['devices'].split(',')],
-                mqtt_send=self.mqtt_publish)
-
-        # Setup IR
-        if int(self.config['ir']['enabled']) == 1:
-            LOGGER.info("Initialising IR...")
-            self.ir_class = lirc_if.Lirc(self.mqtt_publish, self.config['ir'])
+        LOGGER.info("Initialising CEC...")
+        self.cec_class = hdmicec.HdmiCec(
+            port=self.config['cec']['port'],
+            name=self.config['cec']['name'],
+            devices=[int(x) for x in self.config['cec']['devices'].split(',')],
+            mqtt_send=self.mqtt_publish,
+        )
 
     @staticmethod
     def load_config(filename='config.ini'):
@@ -130,7 +122,7 @@ class Bridge:
 
         return config
 
-    def mqtt_on_connect(self, client: mqtt, _userdata, _flags, ret):
+    def mqtt_on_connect(self, client: mqtt.Client, _userdata, _flags, ret):
         """MQTT on connect callback
 
         Args:
@@ -143,27 +135,20 @@ class Bridge:
             LOGGER.info("Connected successfully")
         else:
             LOGGER.error("Connection failed with code %d", ret)
+            return
 
         # Subscribe to CEC commands
-        if int(self.config['cec']['enabled']) == 1:
-            client.subscribe([
-                (self.config['mqtt']['prefix'] + '/cec/device/+/power/set', 0),
-                (self.config['mqtt']['prefix'] + '/cec/audio/volume/set', 0),
-                (self.config['mqtt']['prefix'] + '/cec/audio/mute/set', 0),
-                (self.config['mqtt']['prefix'] + '/cec/tx', 0),
-                (self.config['mqtt']['prefix'] + '/cec/refresh', 0),
-                (self.config['mqtt']['prefix'] + '/cec/scan', 0)
-            ])
-
-        # Subscribe to IR commands
-        if int(self.config['ir']['enabled']) == 1:
-            client.subscribe([
-                (self.config['mqtt']['prefix'] + '/ir/+/tx', 0)
-            ])
+        client.subscribe([
+            (self.config['mqtt']['prefix'] + '/cec/device/+/power/set', 0),
+            (self.config['mqtt']['prefix'] + '/cec/audio/volume/set', 0),
+            (self.config['mqtt']['prefix'] + '/cec/audio/mute/set', 0),
+            (self.config['mqtt']['prefix'] + '/cec/tx', 0),
+            (self.config['mqtt']['prefix'] + '/cec/refresh', 0),
+            (self.config['mqtt']['prefix'] + '/cec/scan', 0)
+        ])
 
         # Publish birth message
         self.mqtt_publish('bridge/status', 'online', qos=1, retain=True)
-
 
     def mqtt_publish(self, topic, message=None, qos=0, retain=True):
         """Publish a MQTT message prefixed with bridge prefix
@@ -179,7 +164,7 @@ class Bridge:
             self.config['mqtt']['prefix'] + '/' + topic, message, qos=qos,
             retain=retain)
 
-    def mqtt_on_message(self, _client: mqtt, _userdata, message):
+    def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
         """Process message on subscibed MQTT topic
 
         Args:
@@ -239,28 +224,18 @@ class Bridge:
             elif topic[1] == 'scan':
                 self.cec_class.scan()
 
-        elif topic[0] == 'ir':
-            if topic[2] == 'tx':
-                self.ir_class.ir_send(topic[1], action)
-
-
     def cleanup(self):
         """Terminates the connection."""
-        if int(self.config['ir']['enabled']) == 1:
-            LOGGER.info("Cleanup IR...")
-            self.ir_class.stop_event.set()
-            self.ir_class.lirc_thread.join()
         self.mqtt_client.loop_stop()
         self.mqtt_publish('bridge/status', 'offline', qos=1, retain=True)
         self.mqtt_client.disconnect()
 
+
 def main():
     """main for cec_mqtt_bridge"""
-    parser = argparse.ArgumentParser(description='HDMI-CEC and IR to MQTT bridge')
+    parser = argparse.ArgumentParser(description='HDMI-CEC to MQTT bridge')
     parser.add_argument('-v', '--verbose', action='count', help="increase output verbosity")
     parser.add_argument('-f', '--configfile')
-    parser.add_argument('-c', '--cec', action="store_true", help="enable CEC")
-    parser.add_argument('-i', '--ir', action="store_true", help="enable IR")
     parser.add_argument('-t', '--refreshtime', type=int)
 
     args = parser.parse_args()
@@ -278,11 +253,6 @@ def main():
         config_file = 'config.ini'
 
     config = Bridge.load_config(config_file)
-    if args.cec:
-        config['cec']['enabled'] = 1
-
-    if args.ir:
-        config['ir']['enabled'] = 1
 
     if args.refreshtime is not None:
         config['cec']['refresh'] = str(args.refreshtime)
@@ -298,7 +268,7 @@ def main():
     try:
         while True:
             # Refresh CEC state
-            if (int(bridge.config['cec']['enabled']) == 1) and bridge.cec_class and refresh_delay:
+            if bridge.cec_class and refresh_delay:
                 bridge.cec_class.refresh()
                 time.sleep(refresh_delay)
             else:
@@ -309,6 +279,7 @@ def main():
 
     except RuntimeError:
         bridge.cleanup()
+
 
 if __name__ == '__main__':
     main()

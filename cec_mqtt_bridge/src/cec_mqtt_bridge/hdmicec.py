@@ -146,6 +146,7 @@ class HdmiCec:
                 mute, volume = self.decode_volume(int(cmd[9:], base=16))
                 self._mqtt_send('cec/audio/volume', volume)
                 self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
+                self.volume_update.set()
             elif opcode == cec.CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:
                 if int(cmd[9:], base=16) == 1:
                     self._mqtt_send('cec/device/5/power', 'on')
@@ -217,9 +218,10 @@ class HdmiCec:
         LOGGER.debug('Set volume to %d', requested_volume)
         self.setting_volume = True
 
+        max_attempts = 5
         attempts = 0
-        while attempts < 10:
-            LOGGER.debug('Attempt %d to set volume', attempts)
+        while attempts < max_attempts:
+            LOGGER.debug('Attempt %d/%d to set volume', attempts + 1, max_attempts)
 
             # Ask AVR to send us an update about its volume
             self.volume_update.clear()
@@ -228,7 +230,8 @@ class HdmiCec:
             # Wait for this update to arrive
             LOGGER.debug('Waiting for response...')
             if not self.volume_update.wait(0.2):
-                LOGGER.warning('No response received. Retrying...')
+                attempts += 1
+                LOGGER.warning('No response received. Retrying... (%d/%d)', attempts, max_attempts)
                 continue
 
             # Read the update
