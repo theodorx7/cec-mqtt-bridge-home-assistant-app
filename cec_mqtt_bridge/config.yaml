@@ -1,0 +1,49 @@
+name: "HDMI-CEC MQTT Bridge"
+description: "Connecting HDMI-CEC devices to your home automation system."
+version: "1.0.0"
+slug: "cec_mqtt_bridge"
+init: false
+arch:
+  - aarch64
+  - amd64
+startup: services
+boot: auto
+
+video: true
+usb: true
+udev: true
+uart: true
+
+options:
+  mqtt_broker: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_tls: 0
+  mqtt_user: "mqtt"
+  mqtt_password: "mqtt"
+  mqtt_prefix: "cec-mqtt"
+  mqtt_name: "cec-bridge"
+
+  cec_id: 1
+  cec_port: ""
+  cec_devices: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14"
+  cec_name: "CEC Bridge"
+  cec_refresh: 10
+
+  debug: false
+
+schema:
+  mqtt_broker: str
+  mqtt_port: port
+  mqtt_tls: int(0,1)
+  mqtt_user: str?
+  mqtt_password: password?
+  mqtt_prefix: str
+  mqtt_name: str
+
+  cec_id: int(0,15)
+  cec_port: str?
+  cec_devices: str
+  cec_name: str
+  cec_refresh: int(0,)
+
+  debug: bool

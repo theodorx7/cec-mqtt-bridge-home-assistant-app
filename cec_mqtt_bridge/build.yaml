@@ -1,0 +1,11 @@
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base:3.23
+  amd64: ghcr.io/home-assistant/amd64-base:3.23
+
+args:
+  LIBCEC_VERSION: "7.1.1"
+
+labels:
+  org.opencontainers.image.title: "Home Assistant App: HDMI-CEC MQTT Bridge"
+  org.opencontainers.image.description: "Connecting HDMI-CEC devices to your home automation system."
+  org.opencontainers.image.source: "https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app"
