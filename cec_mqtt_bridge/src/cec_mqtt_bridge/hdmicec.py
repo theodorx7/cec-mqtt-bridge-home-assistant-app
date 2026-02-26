@@ -233,23 +233,14 @@ class HdmiCec:
 
             diff = abs(current_volume - requested_volume)
             LOGGER.debug('Difference in volume is %s', diff)
-
-            if diff >= 10:
-                diff = math.ceil(diff / 2)
-                LOGGER.debug('Changing fast with %d', diff)
-                for i in range(diff):
-                    if current_volume < requested_volume:
-                        self.cec_client.VolumeUp(i == diff - 1)
-                    elif current_volume > requested_volume:
-                        self.cec_client.VolumeDown(i == diff - 1)
-            else:
-                LOGGER.debug('Changing slow with %d', diff)
-                for i in range(diff):
-                    if current_volume < requested_volume:
-                        self.cec_client.VolumeUp()
-                    elif current_volume > requested_volume:
-                        self.cec_client.VolumeDown()
-                    time.sleep(0.1)
+            
+            step_up = requested_volume > current_volume
+            for _ in range(diff):
+                if step_up:
+                    self.cec_client.VolumeUp()
+                else:
+                    self.cec_client.VolumeDown()
+                time.sleep(0.1)
 
             attempts += 1
 
