@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """HDMI CEC interface to HDMI CEC MQTT bridge"""
 
 import logging
@@ -75,7 +74,7 @@ class HdmiCec:
                 r'\(([0-9a-fA-F])\): power status changed from \'.*\' to \'(.*)\'',
                 message)
             if match:
-                device = int(match.group(1),16)
+                device = int(match.group(1), 16)
                 power = match.group(2)
                 self._mqtt_send(f'cec/device/{device}/power', power)
 
@@ -231,7 +230,7 @@ class HdmiCec:
         self.setting_volume = False
 
     def decode_volume(self, audio_status) -> tuple[bool, int]:
-        """Decodes CEC audio status into mut and real volume
+        """Decodes CEC audio status into mute and real volume
 
         Args:
             audio_status (int): CEC audio status
@@ -259,7 +258,7 @@ class HdmiCec:
 
     def refresh(self):
         """Refresh the audio status and power status."""
-        # :TODO: This operation takes ~2 sec should it be done in seperate thread?
+        # :TODO: This operation takes ~2 sec should it be done in separate thread?
         if self.setting_volume:
             return
 
@@ -291,7 +290,7 @@ class HdmiCec:
             # Get power status values of discovered devices from ceclib
             # This will setting unknown power state when device does not respond.
             physical_address = self.cec_client.GetDevicePhysicalAddress(device)
-            if physical_address != 0xFFFF :
+            if physical_address != 0xFFFF:
                 vendor_id        = self.cec_client.GetDeviceVendorId(device)
                 physical_address = self.cec_client.GetDevicePhysicalAddress(device)
                 active           = self.cec_client.IsActiveSource(device)
