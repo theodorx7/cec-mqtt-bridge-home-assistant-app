@@ -1,54 +1,7 @@
 #!/usr/bin/with-contenv bashio
 set -e
 
-CONFIG_FILE="/data/cec-mqtt-bridge.ini"
-
-MQTT_BROKER="$(bashio::config 'mqtt_broker')"
-MQTT_PORT="$(bashio::config 'mqtt_port')"
-MQTT_TLS="$(bashio::config 'mqtt_tls')"
-MQTT_USER="$(bashio::config 'mqtt_user')"
-MQTT_PASSWORD="$(bashio::config 'mqtt_password')"
-MQTT_PREFIX="$(bashio::config 'mqtt_prefix')"
-MQTT_NAME="$(bashio::config 'mqtt_name')"
-
-CEC_ID="$(bashio::config 'cec_id')"
-CEC_PORT="$(bashio::config 'cec_port')"
-CEC_DEVICES="$(bashio::config 'cec_devices')"
-CEC_NAME="$(bashio::config 'cec_name')"
-CEC_REFRESH="$(bashio::config 'cec_refresh')"
-
-DEBUG="$(bashio::config 'debug')"
-
-# optional values come as 'null'
-if [ "${MQTT_USER}" = "null" ]; then MQTT_USER=""; fi
-if [ "${MQTT_PASSWORD}" = "null" ]; then MQTT_PASSWORD=""; fi
-if [ "${CEC_PORT}" = "null" ]; then CEC_PORT=""; fi
-
-cat > "${CONFIG_FILE}" <<EOF
-[mqtt]
-broker = ${MQTT_BROKER}
-port = ${MQTT_PORT}
-tls = ${MQTT_TLS}
-user = ${MQTT_USER}
-password = ${MQTT_PASSWORD}
-prefix = ${MQTT_PREFIX}
-name = ${MQTT_NAME}
-
-[cec]
-enabled = 1
-id = ${CEC_ID}
-port = ${CEC_PORT}
-devices = ${CEC_DEVICES}
-name = ${CEC_NAME}
-refresh = ${CEC_REFRESH}
-EOF
-
 bashio::log.info "Starting HDMI-CEC MQTT Bridge"
 
-if [ "${DEBUG}" = "true" ]; then
-  export PYTHONPATH="/app/src"
-  exec python3 -u -m cec_mqtt_bridge.bridge -v -f "${CONFIG_FILE}"
-else
-  export PYTHONPATH="/app/src"
-  exec python3 -u -m cec_mqtt_bridge.bridge -f "${CONFIG_FILE}"
-fi
+export PYTHONPATH="/app/src"
+exec python3 -u -m cec_mqtt_bridge.bridge
