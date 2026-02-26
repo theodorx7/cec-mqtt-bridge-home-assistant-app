@@ -11,14 +11,6 @@ import cec
 
 LOGGER = logging.getLogger(__name__)
 
-DEFAULT_CONFIGURATION = {
-    'enabled': 0,
-    'port': '',
-    'devices': '0,1,2,3,4,5,6,7,8,9,10,11,12,13,14',
-    'name': 'CEC Bridge',
-    'refresh': '10'
-}
-
 
 class HdmiCec:
     """HDMI CEC interface class"""
@@ -113,7 +105,7 @@ class HdmiCec:
     # key press callback
     def _on_key_press_callback(self, key, duration):
         LOGGER.debug('_on_key_press_callback %s %s', key, duration)
-        return self.cec_client.KeyPressCallback(key, duration)
+        return 0
 
     # command callback
     # https://github.com/Pulse-Eight/libcec/blob/master/include/cectypes.h
@@ -153,7 +145,7 @@ class HdmiCec:
                 else:
                     self._mqtt_send('cec/device/5/power', 'standby')
 
-        return self.cec_client.CommandCallback(cmd)
+        return 0
 
     def power_on(self, device: int):
         """Power on the specified device."""
@@ -325,12 +317,11 @@ class HdmiCec:
             # This will setting unknown power state when device does not respond.
             physical_address = self.cec_client.GetDevicePhysicalAddress(device)
             if physical_address != 0xFFFF:
-                vendor_id        = self.cec_client.GetDeviceVendorId(device)
-                physical_address = self.cec_client.GetDevicePhysicalAddress(device)
-                active           = self.cec_client.IsActiveSource(device)
-                cec_version      = self.cec_client.GetDeviceCecVersion(device)
-                power            = self.cec_client.GetDevicePowerStatus(device)
-                osd_name         = self.cec_client.GetDeviceOSDName(device)
+                vendor_id   = self.cec_client.GetDeviceVendorId(device)
+                active      = self.cec_client.IsActiveSource(device)
+                cec_version = self.cec_client.GetDeviceCecVersion(device)
+                power       = self.cec_client.GetDevicePowerStatus(device)
+                osd_name    = self.cec_client.GetDeviceOSDName(device)
 
                 self._mqtt_send(f'cec/device/{device}/type',
                                 self.cec_client.LogicalAddressToString(device))
