@@ -6,8 +6,7 @@ import math
 import re
 import threading
 import time
-import os
-from typing import List
+from typing import Callable, List
 import cec
 
 LOGGER = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ DEFAULT_CONFIGURATION = {
 
 class HdmiCec:
     """HDMI CEC interface class"""
-    def __init__(self, port: str, name: str, devices: List[int], mqtt_send: callable):
+    def __init__(self, port: str, name: str, devices: List[int], mqtt_send: Callable[..., None]):
         self._mqtt_send = mqtt_send
         self.devices = devices
         self.volume_correction = 1  # 80/100 = max volume of avr / reported max volume
@@ -44,19 +43,51 @@ class HdmiCec:
 
         # Open connection
         self.cec_client = cec.ICECAdapter.Create(self.cec_config)  # type: cec.ICECAdapter
-        if not port:
-            if os.path.exists('/dev/cec0'):
-                port = '/dev/cec0'
-            else:
-                port = 'RPI'
-
-        LOGGER.info('Opening HDMI-CEC device %s', port)
-        if not self.cec_client.Open(port):
-            raise ConnectionError(f"Could not connect to CEC adapter {port}")
+        selected_port, selected_source = self._open_cec_adapter(port)
 
         self.device_id = self.cec_client.GetLogicalAddresses().primary
-        LOGGER.info('Connected to HDMI-CEC with ID %d', self.device_id)
+        LOGGER.info(
+            'Connected to HDMI-CEC with ID %d (port=%s, source=%s)',
+            self.device_id,
+            selected_port,
+            selected_source,
+        )
         self.scan()
+
+
+    def _open_cec_adapter(self, explicit_port: str) -> tuple[str, str]:
+        """Open explicit libCEC port or first available autodetected adapter."""
+        def try_open(port_name: str) -> bool:
+            try:
+                return bool(self.cec_client.Open(port_name))
+            except Exception as err:
+                LOGGER.debug('Open(%s) raised: %s', port_name, err)
+                return False
+
+        if explicit_port:
+            if try_open(explicit_port):
+                LOGGER.info('Opened HDMI-CEC device %s (source=explicit)', explicit_port)
+                return explicit_port, 'explicit'
+            LOGGER.error('CEC adapter explicit open failed (port=%s)', explicit_port)
+            raise ConnectionError(f"Could not connect to CEC adapter on port '{explicit_port}'")
+
+        try:
+            adapters = self.cec_client.DetectAdapters() or []
+        except Exception as err:
+            LOGGER.error('Port autodetection mechanism failed (DetectAdapters): %s', err)
+            raise ConnectionError('Could not connect to CEC adapter') from err
+
+        last = None
+        for adapter in adapters:
+            candidate = getattr(adapter, 'strComName', None)
+            if candidate:
+                last = candidate
+                if try_open(candidate):
+                    LOGGER.info('Opened HDMI-CEC device %s (source=autodetect)', candidate)
+                    return candidate, 'autodetect'
+
+        LOGGER.error('CEC autodetect failed: no detected port could be opened (last=%s, candidates=%d)', last, len(adapters))
+        raise ConnectionError('Could not connect to CEC adapter')
 
     def _on_log_callback(self, level, _time, message):
         level_map = {
