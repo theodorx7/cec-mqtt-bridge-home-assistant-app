@@ -5,10 +5,8 @@ Raises:
     ValueError: Invalid config value
     ConnectionError: Failed to connect to MQTT brocker
 """
-import argparse
-import configparser as ConfigParser
+import json
 import logging
-import os
 import threading
 import time
 
@@ -18,20 +16,9 @@ from cec_mqtt_bridge import hdmicec
 
 LOGGER = logging.getLogger('bridge')
 
-# Default configuration
-DEFAULT_CONFIGURATION = {
-    'mqtt': {
-        'broker': 'localhost',
-        'name': 'CEC Bridge',
-        'port': 1883,
-        'prefix': 'media',
-        'user': '',
-        'password': '',
-        'tls': 0,
-    },
-    'cec': hdmicec.DEFAULT_CONFIGURATION,
-}
-
+def load_config_from_ha() -> dict:
+    with open("/data/options.json", "r", encoding="utf-8") as f:
+        return json.load(f)
 
 class Bridge:
     """Main bridge class"""
@@ -50,26 +37,28 @@ class Bridge:
 
         # Setup MQTT
         LOGGER.info("Initialising MQTT...")
-        self.mqtt_client = mqtt.Client(client_id=self.config['mqtt']['name'])
+        self.mqtt_client = mqtt.Client(client_id=self.config['mqtt_name'])
         self.mqtt_client.on_connect = self.mqtt_on_connect
         self.mqtt_client.on_message = mqtt_on_message
-        if self.config['mqtt']['user']:
+        user = self.config.get('mqtt_user')
+        if user:
             self.mqtt_client.username_pw_set(
-                self.config['mqtt']['user'],
-                password=self.config['mqtt']['password'])
-        if int(self.config['mqtt']['tls']) == 1:
+                user,
+                password=self.config.get('mqtt_password') or ""
+            )
+        if int(self.config['mqtt_tls']) == 1:
             self.mqtt_client.tls_set()
-
+        
         self.mqtt_client.will_set(
-            self.config['mqtt']['prefix'] + '/bridge/status', 'offline', qos=1,
+            self.config['mqtt_prefix'] + '/bridge/status', 'offline', qos=1,
             retain=True)
 
         tries = 30
         while tries > 0:
             tries -= 1
             try:
-                self.mqtt_client.connect(self.config['mqtt']['broker'],
-                                         int(self.config['mqtt']['port']), 60)
+                self.mqtt_client.connect(self.config['mqtt_broker'],
+                                         int(self.config['mqtt_port']), 60)
                 break
             except ConnectionRefusedError:
                 LOGGER.error("Connection was refused by the server")
@@ -88,40 +77,11 @@ class Bridge:
         # Setup HDMI-CEC
         LOGGER.info("Initialising CEC...")
         self.cec_class = hdmicec.HdmiCec(
-            port=self.config['cec']['port'],
-            name=self.config['cec']['name'],
-            devices=[int(x) for x in self.config['cec']['devices'].split(',')],
+            port=self.config.get('cec_port') or "",
+            name=self.config['cec_name'],
+            devices=[int(x.strip()) for x in self.config['cec_devices'].split(',') if x.strip()],
             mqtt_send=self.mqtt_publish,
         )
-
-    @staticmethod
-    def load_config(filename='config.ini'):
-        """Generate bridge config from config ini file.
-
-        Args:
-            filename (str, optional): config ini file. Defaults to 'config.ini'.
-
-        Returns:
-            dict: bridge configuration
-        """
-        config = DEFAULT_CONFIGURATION
-        LOGGER.info("Loading config %s", filename)
-
-        # Load all sections and overwrite default configuration
-        config_parser = ConfigParser.ConfigParser()
-        if config_parser.read(filename):
-            for section in config_parser.sections():
-                config[section].update(dict(config_parser.items(section)))
-
-        # Override with environment variables
-        for section, key_values in config.items():
-            for key, value in key_values.items():
-                env = os.getenv(section.upper() + '_' + key.upper())
-                if env:
-                    config[section][key] = type(value)(env)
-
-        return config
-
     def mqtt_on_connect(self, client: mqtt.Client, _userdata, _flags, ret):
         """MQTT on connect callback
 
@@ -139,12 +99,12 @@ class Bridge:
 
         # Subscribe to CEC commands
         client.subscribe([
-            (self.config['mqtt']['prefix'] + '/cec/device/+/power/set', 0),
-            (self.config['mqtt']['prefix'] + '/cec/audio/volume/set', 0),
-            (self.config['mqtt']['prefix'] + '/cec/audio/mute/set', 0),
-            (self.config['mqtt']['prefix'] + '/cec/tx', 0),
-            (self.config['mqtt']['prefix'] + '/cec/refresh', 0),
-            (self.config['mqtt']['prefix'] + '/cec/scan', 0)
+            (self.config['mqtt_prefix'] + '/cec/device/+/power/set', 0),
+            (self.config['mqtt_prefix'] + '/cec/audio/volume/set', 0),
+            (self.config['mqtt_prefix'] + '/cec/audio/mute/set', 0),
+            (self.config['mqtt_prefix'] + '/cec/tx', 0),
+            (self.config['mqtt_prefix'] + '/cec/refresh', 0),
+            (self.config['mqtt_prefix'] + '/cec/scan', 0)
         ])
 
         # Publish birth message
@@ -161,7 +121,7 @@ class Bridge:
         """
         LOGGER.debug('Send to topic %s: %s', topic, message)
         self.mqtt_client.publish(
-            self.config['mqtt']['prefix'] + '/' + topic, message, qos=qos,
+            self.config['mqtt_prefix'] + '/' + topic, message, qos=qos,
             retain=retain)
 
     def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
@@ -178,10 +138,10 @@ class Bridge:
             ValueError: _description_
         """
         # Decode topic and split off the prefix
-        topic = message.topic.replace(self.config['mqtt']['prefix'], '').split('/')[1:]
+        topic = message.topic.replace(self.config['mqtt_prefix'], '').split('/')[1:]
         action = message.payload.decode()
         LOGGER.debug("Command received: %s (%s)", topic, message.payload)
-
+        
         if topic[0] == 'cec':
 
             if topic[1] == 'device':
@@ -203,20 +163,20 @@ class Bridge:
                     elif action.isdigit() and int(action) <= 100:
                         self.cec_class.volume_set(int(action))
                     else:
-                        raise ValueError(f"Unknown power command: {topic} {action}")
+                        raise ValueError(f"Unknown volume command: {topic} {action}")
 
-                if topic[2] == 'mute':
+                elif topic[2] == 'mute':
                     if action == 'on':
                         self.cec_class.volume_mute()
                     elif action == 'off':
                         self.cec_class.volume_unmute()
                     else:
-                        raise ValueError(f"Unknown power command: {topic} {action}")
+                        raise ValueError(f"Unknown volume command: {topic} {action}")
 
             elif topic[1] == 'tx':
-                commands = message.payload.decode().split(',')
-                for command in commands:
-                    self.cec_class.tx_command(command)
+                for command in action.split(','):
+                    if command.strip():
+                        self.cec_class.tx_command(command.strip())
 
             elif topic[1] == 'refresh':
                 self.cec_class.refresh()
@@ -226,40 +186,23 @@ class Bridge:
 
     def cleanup(self):
         """Terminates the connection."""
-        self.mqtt_client.loop_stop()
         self.mqtt_publish('bridge/status', 'offline', qos=1, retain=True)
         self.mqtt_client.disconnect()
+        self.mqtt_client.loop_stop()
 
 
 def main():
     """main for cec_mqtt_bridge"""
-    parser = argparse.ArgumentParser(description='HDMI-CEC to MQTT bridge')
-    parser.add_argument('-v', '--verbose', action='count', help="increase output verbosity")
-    parser.add_argument('-f', '--configfile')
-    parser.add_argument('-t', '--refreshtime', type=int)
-
-    args = parser.parse_args()
-    log_level = logging.INFO
-    if args.verbose:
-        log_level = logging.DEBUG
-
-    logging.basicConfig(level=log_level, format='%(asctime)s [%(name)s] %(funcName)s: %(message)s')
-
-    if args.configfile:
-        config_file = args.configfile
-    elif os.path.isfile('/etc/cec-mqtt-bridge.ini'):
-        config_file = '/etc/cec-mqtt-bridge.ini'
-    else:
-        config_file = 'config.ini'
-
-    config = Bridge.load_config(config_file)
-
-    if args.refreshtime is not None:
-        config['cec']['refresh'] = str(args.refreshtime)
+    config = load_config_from_ha()
+    log_level = logging.DEBUG if config.get("debug") else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s [%(name)s] %(funcName)s: %(message)s",
+    )
 
     bridge = Bridge(config)
 
-    refresh_delay = int(bridge.config['cec']['refresh'])
+    refresh_delay = int(bridge.config["cec_refresh"])
     if 0 < refresh_delay < 10:
         refresh_delay = 10
 
@@ -273,11 +216,9 @@ def main():
                 time.sleep(refresh_delay)
             else:
                 time.sleep(3600)
-
     except KeyboardInterrupt:
-        bridge.cleanup()
-
-    except RuntimeError:
+        pass
+    finally:
         bridge.cleanup()
 
 
