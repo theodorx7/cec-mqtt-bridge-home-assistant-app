@@ -28,7 +28,7 @@ This implementation does not include IR/LIRC; only HDMI-CEC ↔ MQTT is supporte
 - If your system does not support HDMI-CEC, you can use an external USB-CEC adapter (such as the [Pulse-Eight](https://www.pulse-eight.com/p/104/usb-hdmi-cec-adapter)).
 
 ## Dependencies
-MQTT broker (for example [Mosquitto](https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md))
+MQTT broker [Mosquitto](https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md)
 
 ---
 SEE DOCUMENTATION TAB FOR MORE DETAILS.
