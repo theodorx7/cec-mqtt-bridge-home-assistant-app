@@ -81,6 +81,7 @@ class Bridge:
             name=self.config['cec_name'],
             devices=[int(x.strip()) for x in self.config['cec_devices'].split(',') if x.strip()],
             mqtt_send=self.mqtt_publish,
+            volume_correction=self.config.get("volume_correction"),
         )
     def mqtt_on_connect(self, client: mqtt.Client, _userdata, _flags, ret):
         """MQTT on connect callback
