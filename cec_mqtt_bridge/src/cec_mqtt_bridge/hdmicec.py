@@ -226,14 +226,13 @@ class HdmiCec:
             my_token = self._volume_token
     
         def cancelled() -> bool:
-            # Lock-less read is OK here (int read is atomic under the GIL).
             return my_token != self._volume_token
     
         LOGGER.debug('Set volume to %d', requested_volume)
         self.setting_volume = True
     
         try:
-            # 1) Read current volume once (stable start)
+            # 1) Initial read (only once)
             current = self._request_avr_volume(timeout=0.6, retries=3)
             if cancelled():
                 return
@@ -241,9 +240,12 @@ class HdmiCec:
                 LOGGER.warning('No AVR volume status response (0x7A)')
                 return
     
-            # 2) Round-based correction: compute diff -> apply steps -> settle -> verify
-            max_rounds = 4
-            for _round in range(max_rounds):
+            # 2) Correction passes: compute diff -> send ALL steps (with delay) -> verify -> repeat if needed
+            max_passes = 5
+            step_delay = 0.1
+            settle_delay = 0.5  # give AVR time to apply the last clicks before querying
+    
+            for _pass in range(max_passes):
                 if cancelled():
                     return
     
@@ -253,10 +255,13 @@ class HdmiCec:
     
                 step_up = diff > 0
                 steps = abs(diff)
-                LOGGER.debug('Round %d/%d: current=%d target=%d diff=%d steps=%d',
-                             _round + 1, max_rounds, current, requested_volume, diff, steps)
     
-                # Apply exactly `steps` clicks WITHOUT requesting 0x71 during the batch
+                LOGGER.debug(
+                    'Pass %d/%d: current=%d target=%d diff=%d steps=%d',
+                    _pass + 1, max_passes, current, requested_volume, diff, steps
+                )
+    
+                # Send EXACTLY `steps` clicks in a single pass, with a real delay between clicks
                 for _ in range(steps):
                     if cancelled():
                         return
@@ -264,26 +269,40 @@ class HdmiCec:
                         self.cec_client.VolumeUp()
                     else:
                         self.cec_client.VolumeDown()
-                    time.sleep(0)  # you confirmed this works reliably on your setup
+                    time.sleep(step_delay)
     
-                # Give AVR/libCEC time to apply changes before asking again
-                time.sleep(0.25)
+                # Let AVR catch up before querying status
+                time.sleep(settle_delay)
                 if cancelled():
                     return
     
-                # Verify by requesting status ONCE after the batch
-                new_current = self._request_avr_volume(timeout=0.6, retries=2)
+                # Verify once after the batch (optionally stabilize if AVR reports transitional values)
+                v1 = self._request_avr_volume(timeout=0.6, retries=2)
                 if cancelled():
                     return
     
-                if new_current is None:
+                if v1 is None:
                     # Fallback to cached value if 0x7A didn't arrive
-                    _, new_current = self.decode_volume(self.cec_client.AudioStatus())
+                    _, v1 = self.decode_volume(self.cec_client.AudioStatus())
     
-                current = new_current
+                # Optional stabilization: if device is still applying changes, do one more read and take the latest
+                time.sleep(0.15)
+                if cancelled():
+                    return
     
-            LOGGER.warning('Volume set did not converge after %d rounds (last=%d target=%d)',
-                           max_rounds, current, requested_volume)
+                v2 = self._request_avr_volume(timeout=0.6, retries=1)
+                if cancelled():
+                    return
+    
+                if v2 is None:
+                    _, v2 = self.decode_volume(self.cec_client.AudioStatus())
+    
+                current = v2
+    
+            LOGGER.warning(
+                'Volume set did not converge after %d passes (last=%d target=%d)',
+                max_passes, current, requested_volume
+            )
     
         finally:
             # Do NOT clear setting_volume if a newer request started meanwhile.
