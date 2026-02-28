@@ -6,23 +6,15 @@ configuration:
 
   mqtt_port:
     name: MQTT port
-    description: >-
-      Port of the MQTT broker (usually 1883; 8883 is commonly used for TLS).
 
   mqtt_tls:
     name: MQTT TLS
-    description: >-
-      Enable TLS for MQTT connection (0 = disabled, 1 = enabled).
 
   mqtt_user:
     name: MQTT username
-    description: >-
-      Username for MQTT authentication. Leave empty if authentication is not required.
 
   mqtt_password:
     name: MQTT password
-    description: >-
-      Password for MQTT authentication. Leave empty if authentication is not required.
 
   mqtt_prefix:
     name: MQTT topic prefix
@@ -57,15 +49,14 @@ configuration:
   cec_refresh:
     name: CEC refresh interval (seconds)
     description: >-
-      How often the add-on refreshes/rescans device state.
+      How often the add-on refresh devices state.
 
   volume_correction:
     name: Volume correction (%)
     description: >-
-      Scale volume reported via CEC. 100 = no correction (CEC 0-100 as-is).
+      Scale volume reported via CEC. 100 = no correction.
       Use lower values if your AVR uses a smaller max scale.
 
   debug:
     name: Debug logging
-    description: >-
-      Enable verbose debug logging.
+
