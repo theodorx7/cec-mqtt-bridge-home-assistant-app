@@ -35,7 +35,7 @@ options:
 schema:
   mqtt_broker: str
   mqtt_port: port
-  mqtt_tls: int(0,1)
+  mqtt_tls: bool
   mqtt_user: str?
   mqtt_password: password?
   mqtt_prefix: str
