@@ -46,7 +46,7 @@ class Bridge:
                 user,
                 password=self.config.get('mqtt_password') or ""
             )
-        if int(self.config['mqtt_tls']) == 1:
+        if self.config.get("mqtt_tls", False):
             self.mqtt_client.tls_set()
         
         self.mqtt_client.will_set(
