@@ -243,7 +243,7 @@ class HdmiCec:
             # 2) Correction passes: compute diff -> send ALL steps (with delay) -> verify -> repeat if needed
             max_passes = 5
             step_delay = 0.1
-            settle_delay = 1  # give AVR time to apply the last clicks before querying
+            settle_delay = 1.0
     
             for _pass in range(max_passes):
                 if cancelled():
@@ -276,28 +276,14 @@ class HdmiCec:
                 if cancelled():
                     return
     
-                # Verify once after the batch (optionally stabilize if AVR reports transitional values)
-                v1 = self._request_avr_volume(timeout=0.6, retries=2)
+                # Verify once after the batch
+                current = self._request_avr_volume(timeout=0.6, retries=2)
                 if cancelled():
                     return
     
-                if v1 is None:
+                if current is None:
                     # Fallback to cached value if 0x7A didn't arrive
-                    _, v1 = self.decode_volume(self.cec_client.AudioStatus())
-    
-                # Optional stabilization: if device is still applying changes, do one more read and take the latest
-                time.sleep(0.15)
-                if cancelled():
-                    return
-    
-                v2 = self._request_avr_volume(timeout=0.6, retries=1)
-                if cancelled():
-                    return
-    
-                if v2 is None:
-                    _, v2 = self.decode_volume(self.cec_client.AudioStatus())
-    
-                current = v2
+                    _, current = self.decode_volume(self.cec_client.AudioStatus())
     
             LOGGER.warning(
                 'Volume set did not converge after %d passes (last=%d target=%d)',
