@@ -14,10 +14,17 @@ LOGGER = logging.getLogger(__name__)
 
 class HdmiCec:
     """HDMI CEC interface class"""
-    def __init__(self, port: str, name: str, devices: List[int], mqtt_send: Callable[..., None]):
+    def __init__(
+        self,
+        port: str,
+        name: str,
+        devices: List[int],
+        mqtt_send: Callable[..., None],
+        volume_correction: Optional[int] = None,   # NEW
+    ):
         self._mqtt_send = mqtt_send
         self.devices = devices
-        self.volume_correction = 74 / 100  # 80/100 = max volume of avr / reported max volume
+        self.volume_correction = 1.0 if volume_correction is None else (volume_correction / 100.0)
 
         self.setting_volume = False
         self.refreshing = False
