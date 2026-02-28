@@ -17,7 +17,7 @@ uart: true
 options:
   mqtt_broker: "core-mosquitto"
   mqtt_port: 1883
-  mqtt_tls: 0
+  mqtt_tls: false
   mqtt_user: "mqtt"
   mqtt_password: "mqtt"
   mqtt_prefix: "cec-mqtt"
