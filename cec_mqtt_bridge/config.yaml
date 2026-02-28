@@ -44,7 +44,7 @@ schema:
   cec_port: str?
   cec_devices: str
   cec_name: str
-  cec_refresh: int(0,)
+  cec_refresh: int(10,)
   volume_correction: int(1,100)
 
   debug: bool
