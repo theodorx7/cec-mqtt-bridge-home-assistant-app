@@ -230,6 +230,8 @@ class HdmiCec:
     
         LOGGER.debug('Set volume to %d', requested_volume)
         self.setting_volume = True
+        
+        requested_volume = max(0, min(74, int(requested_volume)))
     
         try:
             # 1) Initial read (only once)
