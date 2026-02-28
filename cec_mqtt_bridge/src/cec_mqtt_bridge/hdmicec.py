@@ -206,7 +206,7 @@ class HdmiCec:
         self._mqtt_send('cec/audio/mute', 'off')
         self.cec_client.AudioUnmute()
 
-    def _request_avr_volume(self, timeout: float = 0.6, retries: int = 2) -> Optional[int]:
+    def _request_avr_volume(self, timeout: float = 0.8, retries: int = 3) -> Optional[int]:
         """Request AVR volume via Give Audio Status (0x71) and wait for Report Audio Status (0x7A)."""
         for _ in range(retries):
             self.volume_update.clear()
