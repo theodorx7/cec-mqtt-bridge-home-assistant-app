@@ -243,7 +243,7 @@ class HdmiCec:
             # 2) Correction passes: compute diff -> send ALL steps (with delay) -> verify -> repeat if needed
             max_passes = 5
             step_delay = 0.1
-            settle_delay = 0.5  # give AVR time to apply the last clicks before querying
+            settle_delay = 1  # give AVR time to apply the last clicks before querying
     
             for _pass in range(max_passes):
                 if cancelled():
