@@ -6,7 +6,7 @@ import math
 import re
 import threading
 import time
-from typing import Callable, List
+from typing import Callable, List, Optional
 import cec
 
 LOGGER = logging.getLogger(__name__)
@@ -14,15 +14,23 @@ LOGGER = logging.getLogger(__name__)
 
 class HdmiCec:
     """HDMI CEC interface class"""
-    def __init__(self, port: str, name: str, devices: List[int], mqtt_send: Callable[..., None]):
+    def __init__(
+        self,
+        port: str,
+        name: str,
+        devices: List[int],
+        mqtt_send: Callable[..., None],
+        volume_correction: Optional[int] = None,   # NEW
+    ):
         self._mqtt_send = mqtt_send
         self.devices = devices
-        self.volume_correction = 1  # 80/100 = max volume of avr / reported max volume
+        self.volume_correction = 1.0 if volume_correction is None else (volume_correction / 100.0)
 
         self.setting_volume = False
         self.refreshing = False
         self.volume_update = threading.Event()
-        self.volume_update.clear()
+        self._volume_token = 0
+        self._volume_token_lock = threading.Lock()
 
         self.cec_config = cec.libcec_configuration()
         self.cec_config.strDeviceName = name
@@ -205,46 +213,95 @@ class HdmiCec:
         self._mqtt_send('cec/audio/mute', 'off')
         self.cec_client.AudioUnmute()
 
-    def volume_set(self, requested_volume: int):
-        """Set the volume to the AVR."""
-        LOGGER.debug('Set volume to %d', requested_volume)
-        self.setting_volume = True
-
-        max_attempts = 5
-        attempts = 0
-        while attempts < max_attempts:
-            LOGGER.debug('Attempt %d/%d to set volume', attempts + 1, max_attempts)
-
-            # Ask AVR to send us an update about its volume
+    def _request_avr_volume(self, timeout: float = 0.8, retries: int = 3) -> Optional[int]:
+        """Request AVR volume via Give Audio Status (0x71) and wait for Report Audio Status (0x7A)."""
+        for _ in range(retries):
             self.volume_update.clear()
             self.tx_command('71', device=5)
+    
+            if self.volume_update.wait(timeout):
+                _, v = self.decode_volume(self.cec_client.AudioStatus())
+                return v
+    
+        return None
+    
+    def volume_set(self, requested_volume: int):
+        """Set the volume to the AVR (last request wins)."""
+        # Create a new token; any previous in-flight volume_set should stop.
+        with self._volume_token_lock:
+            self._volume_token += 1
+            my_token = self._volume_token
+        self.volume_update.set()
 
-            # Wait for this update to arrive
-            LOGGER.debug('Waiting for response...')
-            if not self.volume_update.wait(0.2):
-                attempts += 1
-                LOGGER.warning('No response received. Retrying... (%d/%d)', attempts, max_attempts)
-                continue
-
-            # Read the update
-            _, current_volume = self.decode_volume(self.cec_client.AudioStatus())
-            if current_volume == requested_volume:
-                break
-
-            diff = abs(current_volume - requested_volume)
-            LOGGER.debug('Difference in volume is %s', diff)
-            
-            step_up = requested_volume > current_volume
-            for _ in range(diff):
-                if step_up:
-                    self.cec_client.VolumeUp()
-                else:
-                    self.cec_client.VolumeDown()
-                time.sleep(0.1)
-
-            attempts += 1
-
-        self.setting_volume = False
+        def cancelled() -> bool:
+            return my_token != self._volume_token
+    
+        LOGGER.debug('Set volume to %d', requested_volume)
+        self.setting_volume = True
+    
+        try:
+            # 1) Initial read (only once)
+            current = self._request_avr_volume(timeout=0.6, retries=3)
+            if cancelled():
+                return
+            if current is None:
+                LOGGER.warning('No AVR volume status response (0x7A)')
+                return
+    
+            # 2) Correction passes: compute diff -> send ALL steps (with delay) -> verify -> repeat if needed
+            max_passes = 5
+            step_delay = 0.1
+            settle_delay = 0.5
+    
+            for _pass in range(max_passes):
+                if cancelled():
+                    return
+    
+                diff = requested_volume - current
+                if diff == 0:
+                    return
+    
+                step_up = diff > 0
+                steps = abs(diff)
+    
+                LOGGER.debug(
+                    'Pass %d/%d: current=%d target=%d diff=%d steps=%d',
+                    _pass + 1, max_passes, current, requested_volume, diff, steps
+                )
+    
+                # Send EXACTLY `steps` clicks in a single pass, with a real delay between clicks
+                for _ in range(steps):
+                    if cancelled():
+                        return
+                    if step_up:
+                        self.cec_client.VolumeUp()
+                    else:
+                        self.cec_client.VolumeDown()
+                    time.sleep(step_delay)
+    
+                # Let AVR catch up before querying status
+                time.sleep(settle_delay)
+                if cancelled():
+                    return
+    
+                # Verify once after the batch
+                current = self._request_avr_volume(timeout=0.6, retries=2)
+                if cancelled():
+                    return
+    
+                if current is None:
+                    # Fallback to cached value if 0x7A didn't arrive
+                    _, current = self.decode_volume(self.cec_client.AudioStatus())
+    
+            LOGGER.warning(
+                'Volume set did not converge after %d passes (last=%d target=%d)',
+                max_passes, current, requested_volume
+            )
+    
+        finally:
+            # Do NOT clear setting_volume if a newer request started meanwhile.
+            if my_token == self._volume_token:
+                self.setting_volume = False
 
     def decode_volume(self, audio_status) -> tuple[bool, int]:
         """Decodes CEC audio status into mute and real volume
