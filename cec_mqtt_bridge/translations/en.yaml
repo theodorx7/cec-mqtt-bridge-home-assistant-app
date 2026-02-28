@@ -41,13 +41,11 @@ configuration:
 
   cec_refresh:
     name: CEC refresh interval (seconds)
-    description: How often the add-on refresh devices state.
+    description: Polling interval for the CEC bus / device status updates.
 
   volume_correction:
-    name: Volume correction (%)
-    description: >-
-      Scale volume reported via CEC. 100 = no correction.
-      Use lower values if your AVR uses a smaller max scale.
+    name: Volume correction
+    description: Specify the maximum value of your AVR’s volume scale.
 
   debug:
     name: Debug logging
