@@ -24,7 +24,7 @@ This implementation does not include IR/LIRC; only HDMI-CEC ↔ MQTT is supporte
 - **RPi 4/5 limitation:** connection only via HDMI0 port (closest to the power connector).
 
 ### x86_64 / ODROID
-- Not all devices have built-in HDMI-CEC support. To determine if your system currently supports HDMI-CEC, use the official HA [CEC Scanner](https://github.com/home-assistant/addons/blob/master/cec_scan/DOCS.md) app.
+- Not all devices have built-in HDMI-CEC support.
 - If your system does not support HDMI-CEC, you can use an external USB-CEC adapter (such as the [Pulse-Eight](https://www.pulse-eight.com/p/104/usb-hdmi-cec-adapter)).
 
 ## Dependencies
