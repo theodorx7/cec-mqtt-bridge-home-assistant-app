@@ -240,7 +240,7 @@ class HdmiCec:
                     self.cec_client.VolumeUp()
                 else:
                     self.cec_client.VolumeDown()
-                time.sleep(0)
+                time.sleep(0.1)
 
             attempts += 1
 
