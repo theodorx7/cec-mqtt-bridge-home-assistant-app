@@ -17,7 +17,7 @@ class HdmiCec:
     def __init__(self, port: str, name: str, devices: List[int], mqtt_send: Callable[..., None]):
         self._mqtt_send = mqtt_send
         self.devices = devices
-        self.volume_correction = 1  # 80/100 = max volume of avr / reported max volume
+        self.volume_correction = 74 / 100  # 80/100 = max volume of avr / reported max volume
 
         self.setting_volume = False
         self.refreshing = False
@@ -230,8 +230,6 @@ class HdmiCec:
     
         LOGGER.debug('Set volume to %d', requested_volume)
         self.setting_volume = True
-        
-        requested_volume = max(0, min(74, int(requested_volume)))
     
         try:
             # 1) Initial read (only once)
