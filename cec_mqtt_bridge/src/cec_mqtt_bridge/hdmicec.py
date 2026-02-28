@@ -231,7 +231,8 @@ class HdmiCec:
         with self._volume_token_lock:
             self._volume_token += 1
             my_token = self._volume_token
-    
+        self.volume_update.set()
+
         def cancelled() -> bool:
             return my_token != self._volume_token
     
