@@ -152,14 +152,14 @@ class Bridge:
         rx_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Last Received CEC ({instance_label})",
+            "name": f"Last Received CEC ({self.ha_instance_label})",
             "unique_id": self.ha_rx_id,
             "state_topic": f"{self.mqtt_prefix}/cec/rx",
         }
         tx_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Last Sent CEC ({instance_label})",
+            "name": f"Last Sent CEC ({self.ha_instance_label})",
             "unique_id": self.ha_tx_id,
             "state_topic": f"{self.mqtt_prefix}/cec/tx",
         }
