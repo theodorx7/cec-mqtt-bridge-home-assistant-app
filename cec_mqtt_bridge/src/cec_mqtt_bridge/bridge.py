@@ -7,6 +7,7 @@ Raises:
 """
 import json
 import logging
+import signal
 import threading
 import time
 
@@ -15,6 +16,9 @@ import paho.mqtt.client as mqtt
 from cec_mqtt_bridge import hdmicec
 
 LOGGER = logging.getLogger('bridge')
+HA_DISCOVERY_PREFIX_DEFAULT = "homeassistant"
+HA_ORIGIN_NAME = "cec-mqtt-bridge"
+HA_SUPPORT_URL = "https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app"
 
 def load_config_from_ha() -> dict:
     with open("/data/options.json", "r", encoding="utf-8") as f:
@@ -25,6 +29,15 @@ class Bridge:
 
     def __init__(self, config: dict):
         self.config = config
+        self.ha_discovery_enabled = self.config["ha_discovery"]
+        self.ha_device_id = "cec_mqtt_bridge"
+        self.mqtt_prefix = self.config["mqtt_prefix"]
+        instance = "".join(ch if (ch.isalnum() or ch in "_-") else "_" for ch in self.mqtt_prefix)
+        self.ha_rx_id = f"cec_last_received_{instance}"
+        self.ha_tx_id = f"cec_last_sent_{instance}"
+        self.ha_instance_label = instance
+        self.ha_rx_discovery_topic = f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_rx_id}/config"
+        self.ha_tx_discovery_topic = f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_tx_id}/config"
 
         def mqtt_on_message(client: mqtt.Client, userdata, message):
             """Run mqtt callback in a seperate thread."""
@@ -49,9 +62,7 @@ class Bridge:
         if self.config.get("mqtt_tls", False):
             self.mqtt_client.tls_set()
         
-        self.mqtt_client.will_set(
-            self.config['mqtt_prefix'] + '/bridge/status', 'offline', qos=1,
-            retain=True)
+        self.mqtt_client.will_set(self.mqtt_prefix + '/bridge/status', 'offline', qos=1, retain=True)
 
         tries = 30
         while tries > 0:
@@ -100,16 +111,21 @@ class Bridge:
 
         # Subscribe to CEC commands
         client.subscribe([
-            (self.config['mqtt_prefix'] + '/cec/device/+/power/set', 0),
-            (self.config['mqtt_prefix'] + '/cec/audio/volume/set', 0),
-            (self.config['mqtt_prefix'] + '/cec/audio/mute/set', 0),
-            (self.config['mqtt_prefix'] + '/cec/tx', 0),
-            (self.config['mqtt_prefix'] + '/cec/refresh', 0),
-            (self.config['mqtt_prefix'] + '/cec/scan', 0)
+            (self.mqtt_prefix + '/cec/device/+/power/set', 0),
+            (self.mqtt_prefix + '/cec/audio/volume/set', 0),
+            (self.mqtt_prefix + '/cec/audio/mute/set', 0),
+            (self.mqtt_prefix + '/cec/tx', 0),
+            (self.mqtt_prefix + '/cec/refresh', 0),
+            (self.mqtt_prefix + '/cec/scan', 0),
         ])
 
         # Publish birth message
         self.mqtt_publish('bridge/status', 'online', qos=1, retain=True)
+        # HA MQTT Device Discovery toggle
+        if self.ha_discovery_enabled:
+            self._ha_publish_device_discovery()
+        else:
+            self._ha_clear_device_discovery()
 
     def mqtt_publish(self, topic, message=None, qos=0, retain=True):
         """Publish a MQTT message prefixed with bridge prefix
@@ -121,10 +137,40 @@ class Bridge:
             retain (bool, optional): _description_. Defaults to True.
         """
         LOGGER.debug('Send to topic %s: %s', topic, message)
-        self.mqtt_client.publish(
-            self.config['mqtt_prefix'] + '/' + topic, message, qos=qos,
-            retain=retain)
+        self.mqtt_client.publish(self.mqtt_prefix + '/' + topic, message, qos=qos, retain=retain)
 
+    def _ha_publish_device_discovery(self) -> None:
+        device_ctx = {
+            "identifiers": [self.ha_device_id],
+            "name": "HDMI-CEC MQTT Bridge",
+        }
+        origin_ctx = {
+            "name": HA_ORIGIN_NAME,
+            "support_url": HA_SUPPORT_URL,
+        }
+
+        rx_payload = {
+            "device": device_ctx,
+            "origin": origin_ctx,
+            "name": f"Last Received CEC ({instance_label})",
+            "unique_id": self.ha_rx_id,
+            "state_topic": f"{self.mqtt_prefix}/cec/rx",
+        }
+        tx_payload = {
+            "device": device_ctx,
+            "origin": origin_ctx,
+            "name": f"Last Sent CEC ({instance_label})",
+            "unique_id": self.ha_tx_id,
+            "state_topic": f"{self.mqtt_prefix}/cec/tx",
+        }
+    
+        self.mqtt_client.publish(self.ha_rx_discovery_topic, json.dumps(rx_payload), qos=1, retain=True)
+        self.mqtt_client.publish(self.ha_tx_discovery_topic, json.dumps(tx_payload), qos=1, retain=True)
+    
+    def _ha_clear_device_discovery(self) -> None:
+        self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True)
+        self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True)
+        
     def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
         """Process message on subscibed MQTT topic
 
@@ -139,7 +185,7 @@ class Bridge:
             ValueError: _description_
         """
         # Decode topic and split off the prefix
-        topic = message.topic.replace(self.config['mqtt_prefix'], '').split('/')[1:]
+        topic = message.topic.replace(self.mqtt_prefix, '').split('/')[1:]
         action = message.payload.decode()
         LOGGER.debug("Command received: %s (%s)", topic, message.payload)
         
@@ -186,8 +232,12 @@ class Bridge:
                 self.cec_class.scan()
 
     def cleanup(self):
-        """Terminates the connection."""
+        """Terminates the connection"""
         self.mqtt_publish('bridge/status', 'offline', qos=1, retain=True)
+
+        if self.ha_discovery_enabled:
+            self._ha_clear_device_discovery()
+    
         self.mqtt_client.disconnect()
         self.mqtt_client.loop_stop()
 
@@ -202,7 +252,15 @@ def main():
     )
 
     bridge = Bridge(config)
-
+    stop_event = threading.Event()
+    
+    def _signal_handler(signum, _frame):
+        LOGGER.info("Received signal %s, stopping...", signum)
+        stop_event.set()
+    
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
+    
     refresh_delay = int(bridge.config["cec_refresh"])
     if 0 < refresh_delay < 10:
         refresh_delay = 10
@@ -210,15 +268,13 @@ def main():
     LOGGER.debug("refresh delay %d", refresh_delay)
 
     try:
-        while True:
+        while not stop_event.is_set():
             # Refresh CEC state
             if bridge.cec_class and refresh_delay:
                 bridge.cec_class.refresh()
-                time.sleep(refresh_delay)
+                stop_event.wait(refresh_delay)
             else:
-                time.sleep(3600)
-    except KeyboardInterrupt:
-        pass
+                stop_event.wait(3600)
     finally:
         bridge.cleanup()
 
