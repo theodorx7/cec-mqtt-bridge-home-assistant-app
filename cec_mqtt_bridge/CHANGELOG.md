@@ -6,10 +6,10 @@
 - Added the `_request_avr_volume()` helper to fetch the current AVR volume via `0x71/0x7A` with timeouts/retries.
 - Implemented request cancellation/prioritization with “**last request wins**”:
   - A new request cancels/overrides the previous one (token + lock).
-  - Older calls can no longer clear `setting_volume` while a newer request is in progress.
+  - Older calls cannot clear `setting_volume` while a newer request is in progress.
 
 ### 🔧 Configuration: `volume_correction` as an add-on option
-- `volume_correction` is no longer hardcoded — it is now an optional setting in `config.yaml`.
+- `volume_correction` is no longer hardcoded — it is now a setting in `config.yaml`.
 - Added `en.yaml` to improve the clarity of settings in the UI.
 
 
