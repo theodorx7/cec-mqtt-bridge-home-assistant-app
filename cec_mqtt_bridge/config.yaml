@@ -18,10 +18,11 @@ options:
   mqtt_broker: "core-mosquitto"
   mqtt_port: 1883
   mqtt_tls: false
-  mqtt_user: "mqtt"
-  mqtt_password: "mqtt"
   mqtt_prefix: "cec-mqtt"
   mqtt_name: "cec-bridge"
+  mqtt_user: "mqtt"
+  mqtt_password: "mqtt"
+
   ha_discovery: true
   
   cec_id: 1
