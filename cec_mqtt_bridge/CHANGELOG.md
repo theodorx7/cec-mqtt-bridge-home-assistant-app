@@ -3,7 +3,7 @@ This project is based on core parts of [`ballle98/cec-mqtt-bridge`](https://gith
 This implementation is **CEC-only**: IR/LIRC support (code paths, config sections, MQTT topics) has been removed.
 Configuration is now read from Home Assistant add-on options (`/data/options.json`).  Legacy INI/CLI/default config handling has been removed; option keys are now flat (`mqtt_*`, `cec_*`).
 
-## ✅ Fix: reliable `volume_set` from MQTT
+## ✅ Fix: reliable `volume_set`
 
 - Fixed a hang/loop scenario in `volume_set()` where the initial audio status request (`tx_command('71')`) could time out without unblocking:
   `CEC_OPCODE_REPORT_AUDIO_STATUS` now signals `volume_update`, so `volume_set()` reliably proceeds after the status query.
