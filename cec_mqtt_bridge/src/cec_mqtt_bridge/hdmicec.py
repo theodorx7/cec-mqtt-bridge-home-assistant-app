@@ -90,11 +90,15 @@ class HdmiCec:
         raise ConnectionError('Could not connect to CEC adapter')
 
     def _on_log_callback(self, level, _time, message):
-        LOGGER.log({
-            cec.CEC_LOG_ERROR:   logging.ERROR,
-            cec.CEC_LOG_WARNING: logging.WARNING,
-            cec.CEC_LOG_NOTICE:  logging.INFO,
-        }.get(level, logging.DEBUG), "libcec: %s", message)
+        m = {
+            cec.CEC_LOG_ERROR:   ("ERROR",   logging.ERROR),
+            cec.CEC_LOG_WARNING: ("WARNING", logging.WARNING),
+            cec.CEC_LOG_NOTICE:  ("NOTICE",  logging.INFO),
+            cec.CEC_LOG_TRAFFIC: ("TRAFFIC", logging.DEBUG),
+            cec.CEC_LOG_DEBUG:   ("DEBUG",   logging.DEBUG),
+        }
+        tag, py = m.get(level, ("DEBUG", logging.DEBUG))
+        LOGGER.log(py, "libcec: [%s] %s", tag, message)
 
         if not self.refreshing:
             # TV (0): power status changed from 'unknown' to 'on'
