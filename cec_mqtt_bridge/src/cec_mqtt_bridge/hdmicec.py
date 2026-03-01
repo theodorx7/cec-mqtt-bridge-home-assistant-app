@@ -20,7 +20,7 @@ class HdmiCec:
         name: str,
         devices: List[int],
         mqtt_send: Callable[..., None],
-        volume_correction: Optional[int] = None,   # NEW
+        volume_correction: Optional[int] = None,
     ):
         self._mqtt_send = mqtt_send
         self.devices = devices
@@ -240,7 +240,7 @@ class HdmiCec:
         self.setting_volume = True
     
         try:
-            # 1) Initial read (only once)
+            # 1) Initial read
             current = self._request_avr_volume(timeout=0.6, retries=3)
             if cancelled():
                 return
