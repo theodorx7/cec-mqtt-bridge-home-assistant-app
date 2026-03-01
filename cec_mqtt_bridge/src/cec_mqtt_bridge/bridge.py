@@ -170,6 +170,8 @@ class Bridge:
     def _ha_clear_device_discovery(self) -> None:
         self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True)
         self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True)
+        i1.wait_for_publish()
+        i2.wait_for_publish()
         
     def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
         """Process message on subscibed MQTT topic
