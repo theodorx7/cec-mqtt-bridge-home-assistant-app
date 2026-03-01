@@ -1,0 +1,63 @@
+configuration:
+  mqtt_broker:
+    name: MQTT broker
+    description: >-
+       Hostname or IP address of your MQTT broker (e.g. core-mosquitto).
+
+  mqtt_port:
+    name: MQTT port
+
+  mqtt_tls:
+    name: MQTT TLS
+
+  mqtt_user:
+    name: MQTT username
+
+  mqtt_password:
+    name: MQTT password
+
+  mqtt_prefix:
+    name: MQTT topic prefix
+    description: >-
+       Prefix for all MQTT topics published by this add-on (e.g. cec-mqtt).
+
+  mqtt_name:
+    name: MQTT client name
+    description: >-
+       MQTT client/device name used by this add-on.
+
+  ha_discovery:
+    name: Create sensors "Last Received CEC" and "Last Sent CEC"
+    description: >-
+       Enable automatic creation/removal of Home Assistant sensor entities via MQTT Discovery
+
+  cec_id:
+    name: CEC logical address (ID)
+    description: >-
+       Logical address for the CEC adapter on the HDMI-CEC bus (0-15).
+
+  cec_port:
+    name: CEC adapter port
+    description: >-
+       Path to the CEC adapter device (e.g. /dev/ttyACM0). Leave empty to auto-detect.
+
+  cec_devices:
+    name: CEC devices list
+    description: >-
+       Comma-separated list of CEC logical addresses to scan/poll (0-15).
+
+  cec_name:
+    name: CEC device name
+    description: >-
+       Device name announced on the HDMI-CEC network.
+
+  cec_refresh:
+    name: CEC refresh interval (seconds)
+    description: >-
+       Polling interval for the CEC bus / device status updates.
+
+  volume_correction:
+    name: Volume correction
+    description: >-
+       Specify the maximum value of your AVR’s volume scale.
+    
