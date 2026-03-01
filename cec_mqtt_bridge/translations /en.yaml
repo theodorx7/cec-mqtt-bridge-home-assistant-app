@@ -46,6 +46,4 @@ configuration:
   volume_correction:
     name: Volume correction
     description: Specify the maximum value of your AVR’s volume scale.
-
-  debug:
-    name: Debug logging
+    
