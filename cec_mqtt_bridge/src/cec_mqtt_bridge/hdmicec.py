@@ -90,14 +90,11 @@ class HdmiCec:
         raise ConnectionError('Could not connect to CEC adapter')
 
     def _on_log_callback(self, level, _time, message):
-        level_map = {
-            cec.CEC_LOG_ERROR: 'ERROR',
-            cec.CEC_LOG_WARNING: 'WARNING',
-            cec.CEC_LOG_NOTICE: 'NOTICE',
-            cec.CEC_LOG_TRAFFIC: 'TRAFFIC',
-            cec.CEC_LOG_DEBUG: 'DEBUG',
-        }
-        LOGGER.debug('LOG: [%s] %s', level_map.get(level), message)
+        LOGGER.log({
+            cec.CEC_LOG_ERROR:   logging.ERROR,
+            cec.CEC_LOG_WARNING: logging.WARNING,
+            cec.CEC_LOG_NOTICE:  logging.INFO,
+        }.get(level, logging.DEBUG), "libcec: %s", message)
 
         if not self.refreshing:
             # TV (0): power status changed from 'unknown' to 'on'
@@ -108,7 +105,6 @@ class HdmiCec:
                 device = int(match.group(1), 16)
                 power = match.group(2)
                 self._mqtt_send(f'cec/device/{device}/power', power)
-
 
     # key press callback
     def _on_key_press_callback(self, key, duration):
