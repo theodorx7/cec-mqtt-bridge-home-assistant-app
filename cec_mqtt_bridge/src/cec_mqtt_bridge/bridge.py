@@ -18,6 +18,7 @@ from cec_mqtt_bridge import hdmicec
 LOGGER = logging.getLogger('bridge')
 HA_ORIGIN_NAME = "cec-mqtt-bridge"
 HA_SUPPORT_URL = "https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app"
+HA_DISCOVERY_PREFIX_DEFAULT = "homeassistant"
 
 def load_config_from_ha() -> dict:
     with open("/data/options.json", "r", encoding="utf-8") as f:
