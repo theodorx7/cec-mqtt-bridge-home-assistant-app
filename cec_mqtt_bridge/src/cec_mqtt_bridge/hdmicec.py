@@ -56,20 +56,10 @@ class HdmiCec:
 
     def _ha_power(self, p: str) -> str:
         p = (p or "").strip().lower()
-    
-        if p == "on" or p == "toon" or "to on" in p:
-            return "on"
-    
-        if (
-            p == "off"
-            or p == "standby"
-            or p == "tooff"
-            or "to standby" in p
-            or "to off" in p
-            or "standby" in p
-        ):
+        if "standby" in p:
             return "off"
-    
+        if p in ("on", "toon"):
+            return "on"
         return p
 
     def _open_cec_adapter(self, explicit_port: str) -> tuple[str, str]:
@@ -165,10 +155,11 @@ class HdmiCec:
                 self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
                 self.volume_update.set()
             elif opcode == cec.CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:
-                self._mqtt_send(
-                    "cec/audio/system_audio_mode",
-                    "on" if int(cmd[9:], base=16) == 1 else "off",
-                )
+                if int(cmd[9:], base=16) == 1:
+                    self._mqtt_send('cec/device/5/power', 'on')
+                else:
+                    self._mqtt_send('cec/device/5/power', 'off')
+
         return 0
 
     def power_on(self, device: int):
