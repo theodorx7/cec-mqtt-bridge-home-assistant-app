@@ -167,11 +167,12 @@ class Bridge:
         self.mqtt_client.publish(self.ha_rx_discovery_topic, json.dumps(rx_payload), qos=1, retain=True)
         self.mqtt_client.publish(self.ha_tx_discovery_topic, json.dumps(tx_payload), qos=1, retain=True)
     
-    def _ha_clear_device_discovery(self) -> None:
-        self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True)
-        self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True)
-        i1.wait_for_publish()
-        i2.wait_for_publish()
+    def _ha_clear_device_discovery(self, *, wait: bool = False) -> None:
+        i1 = self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True)
+        i2 = self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True)
+        if wait:
+            i1.wait_for_publish(timeout=2)
+            i2.wait_for_publish(timeout=2)
         
     def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
         """Process message on subscibed MQTT topic
@@ -237,8 +238,8 @@ class Bridge:
         """Terminates the connection"""
         self.mqtt_publish('bridge/status', 'offline', qos=1, retain=True)
 
-        if self.ha_discovery_enabled:
-            self._ha_clear_device_discovery()
+        if not self.ha_discovery_enabled:
+            self._ha_clear_device_discovery(wait=True)
     
         self.mqtt_client.disconnect()
         self.mqtt_client.loop_stop()
