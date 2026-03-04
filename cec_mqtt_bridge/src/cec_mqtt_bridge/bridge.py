@@ -198,7 +198,7 @@ class Bridge:
                 if topic[3] == 'power':
                     if action == 'on':
                         self.cec_class.power_on(device)
-                    elif action == 'standby':
+                    elif action == 'off':
                         self.cec_class.power_off(device)
                     else:
                         raise ValueError(f"Unknown power command: {topic} {action}")
