@@ -55,7 +55,7 @@ Different AVR brands use different volume scales. It’s important to set the ma
 
 | topic                       | body                                    | remark                                                                    |
 |:----------------------------|-----------------------------------------|---------------------------------------------------------------------------|
-| `prefix`/cec/device/`laddr`/power/set | `on` / `standby`              | Turn on/standby device with with logical address `laddr` (0-14).  |
+| `prefix`/cec/device/`laddr`/power/set | `on` / `off`              | Turn on/standby device with with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/active/set | `yes` / `no`                 | activate/deactivate device with with logical address `laddr` (0-14).  |
 | `prefix`/cec/audio/volume/set     | `integer (0-100)` / `up` / `down` | Sets the volume level of the audio system to a specific level or up/down. |
 | `prefix`/cec/audio/mute/set       | `on` / `off`                      | Mute/Unmute the the audio system.                                         |
@@ -72,7 +72,7 @@ Different AVR brands use different volume scales. It’s important to set the ma
 | `prefix`/cec/device/`laddr`/vendor   | `string`                            | Report vendor of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/osd      | `string`                            | Report OSD of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/cecver   | `string`                            | Report CEC version of device with logical address `laddr` (0-14).  |
-| `prefix`/cec/device/`laddr`/power    | `on` / `standby` / `toon` / `tostandby` / `unknown` | Report power status of device with logical address `laddr` (0-14).      |
+| `prefix`/cec/device/`laddr`/power    | `on` / `off` / `toon` / `tooff` / `unknown` | Report power status of device with logical address `laddr` (0-14).      |
 | `prefix`/cec/device/`laddr`/language | `string`                            | Report langauge of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/audio/volume     | `integer (0-100)` /  `unknown = 127`                      | Report volume level of the audio system.         |
 | `prefix`/cec/mute/status       | `on` / `off`                            | Report mute status of the audio system.          |
@@ -97,7 +97,7 @@ data:
   payload: "up"
 ```
 
-Turn `on` or put the device into `standby` mode (AVR device address: `5`):
+Turn `on` or put the device into `off` mode (AVR device address: `5`):
 ```
 action: mqtt.publish
 data:
