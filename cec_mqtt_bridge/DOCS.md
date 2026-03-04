@@ -3,7 +3,7 @@
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
 
-Home Assistant App: HDMI-CEC MQTT Bridge
+Home Assistant add-on: HDMI-CEC MQTT Bridge
 ========================================
 
 Connect yours AV-devices to your Home Automation system. You can control and monitor power status and volume
@@ -24,11 +24,12 @@ This implementation does not include IR/LIRC; only HDMI-CEC ↔ MQTT is supporte
 - **RPi 4/5 limitation:** connection only via HDMI0 port (closest to the power connector).
 
 ### x86_64 / ODROID
-- Not all devices have built-in HDMI-CEC support. To determine if your system currently supports HDMI-CEC, use the official HA [CEC Scanner](https://github.com/home-assistant/addons/blob/master/cec_scan/DOCS.md) app.
+- Not all devices have built-in HDMI-CEC support.
 - If your system does not support HDMI-CEC, you can use an external USB-CEC adapter (such as the [Pulse-Eight](https://www.pulse-eight.com/p/104/usb-hdmi-cec-adapter)).
 
 ## Dependencies
-MQTT broker (for example [Mosquitto](https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md))
+MQTT broker [Mosquitto](https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md)
+
 
 ## Configuring the CEC port
 If you do not specify a port in the settings, the application will launch the libCEC adapter auto-detection feature (DetectAdapters) and open the first adapter it finds.
@@ -44,7 +45,7 @@ Different AVR brands use different volume scales. It’s important to set the ma
 
 | topic                       | body                                    | remark                                                                    |
 |:----------------------------|-----------------------------------------|---------------------------------------------------------------------------|
-| `prefix`/cec/device/`laddr`/power/set | `on` / `standby`              | Turn on/standby device with with logical address `laddr` (0-14).  |
+| `prefix`/cec/device/`laddr`/power/set | `on` / `off`              | Turn on/standby device with with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/active/set | `yes` / `no`                 | activate/deactivate device with with logical address `laddr` (0-14).  |
 | `prefix`/cec/audio/volume/set     | `integer (0-100)` / `up` / `down` | Sets the volume level of the audio system to a specific level or up/down. |
 | `prefix`/cec/audio/mute/set       | `on` / `off`                      | Mute/Unmute the the audio system.                                         |
@@ -61,7 +62,7 @@ Different AVR brands use different volume scales. It’s important to set the ma
 | `prefix`/cec/device/`laddr`/vendor   | `string`                            | Report vendor of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/osd      | `string`                            | Report OSD of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/cecver   | `string`                            | Report CEC version of device with logical address `laddr` (0-14).  |
-| `prefix`/cec/device/`laddr`/power    | `on` / `standby` / `toon` / `tostandby` / `unknown` | Report power status of device with logical address `laddr` (0-14).      |
+| `prefix`/cec/device/`laddr`/power    | `on` / `off` / `toon` / `tooff` / `unknown` | Report power status of device with logical address `laddr` (0-14).      |
 | `prefix`/cec/device/`laddr`/language | `string`                            | Report langauge of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/audio/volume     | `integer (0-100)` /  `unknown = 127`                      | Report volume level of the audio system.         |
 | `prefix`/cec/mute/status       | `on` / `off`                            | Report mute status of the audio system.          |
@@ -86,7 +87,7 @@ data:
   payload: "up"
 ```
 
-Turn `on` or put the device into `standby` mode (AVR device address: `5`):
+Turn `on` or put the device into `off` mode (AVR device address: `5`):
 ```
 action: mqtt.publish
 data:
