@@ -115,7 +115,8 @@ class HdmiCec:
             if match:
                 device = int(match.group(1), 16)
                 power = match.group(2)
-                self._mqtt_send(f'cec/device/{device}/power', self._ha_power(power))
+                # DISABLED: do not publish power from libcec log callback (cache/noise)
+                # self._mqtt_send(f'cec/device/{device}/power', self._ha_power(power))
 
     # key press callback
     def _on_key_press_callback(self, key, duration):
