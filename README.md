@@ -72,7 +72,7 @@ Different AVR brands use different volume scales. It’s important to set the ma
 | `prefix`/cec/device/`laddr`/vendor   | `string`                            | Report vendor of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/osd      | `string`                            | Report OSD of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/cecver   | `string`                            | Report CEC version of device with logical address `laddr` (0-14).  |
-| `prefix`/cec/device/`laddr`/power    | `on` / `off` / `toon` / `tooff` / `unknown` | Report power status of device with logical address `laddr` (0-14).      |
+| `prefix`/cec/device/`laddr`/power    | `on` / `off` / `unknown` | Report power status of device with logical address `laddr` (0-14).      |
 | `prefix`/cec/device/`laddr`/language | `string`                            | Report langauge of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/audio/volume     | `integer (0-100)` /  `unknown = 127`                      | Report volume level of the audio system.         |
 | `prefix`/cec/mute/status       | `on` / `off`                            | Report mute status of the audio system.          |
