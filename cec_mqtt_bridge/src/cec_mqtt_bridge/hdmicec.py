@@ -55,12 +55,7 @@ class HdmiCec:
         self.scan()
 
     def _ha_power(self, p: str) -> str:
-        p = (p or "").strip().lower()
-        if "standby" in p:
-            return "off"
-        if p in ("on", "toon"):
-            return "on"
-        return p
+        return {"toon": "on", "standby": "off", "tostandby": "off"}.get(p, p)
 
     def _open_cec_adapter(self, explicit_port: str) -> tuple[str, str]:
         """Open explicit libCEC port or first available autodetected adapter."""
