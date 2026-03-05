@@ -166,13 +166,13 @@ class HdmiCec:
         """Power on the specified device."""
         LOGGER.debug('Power on device %d', device)
         self._mqtt_send(f'cec/device/{device}/power', 'on')
-        # self.cec_client.PowerOnDevices(device)
+        self.cec_client.PowerOnDevices(device)
 
     def power_off(self, device: int):
         """Power off the specified device."""
         LOGGER.debug('Power off device %d', device)
         self._mqtt_send(f'cec/device/{device}/power', 'off')
-        # self.cec_client.StandbyDevices(device)
+        self.cec_client.StandbyDevices(device)
 
     def volume_up(self, amount=1, update=True):
         """Increase the volume on the AVR."""
