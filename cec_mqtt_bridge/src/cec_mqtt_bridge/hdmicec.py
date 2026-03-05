@@ -139,8 +139,8 @@ class HdmiCec:
         if not self.refreshing:
             if opcode == cec.CEC_OPCODE_REPORT_POWER_STATUS:
                 power = int(cmd[9:], base=16)
-                # self._mqtt_send(f'cec/device/{initiator}/power',
-                                # self._ha_power(self.cec_client.PowerStatusToString(power)))
+                self._mqtt_send(f'cec/device/{initiator}/power',
+                                self._ha_power(self.cec_client.PowerStatusToString(power)))
             elif opcode == cec.CEC_OPCODE_DEVICE_VENDOR_ID:
                 vendor_id = int((cmd[9:]).replace(':',''), base=16)
                 self._mqtt_send(f'cec/device/{initiator}/vendor',
@@ -166,13 +166,13 @@ class HdmiCec:
         """Power on the specified device."""
         LOGGER.debug('Power on device %d', device)
         self._mqtt_send(f'cec/device/{device}/power', 'on')
-        self.cec_client.PowerOnDevices(device)
+        # self.cec_client.PowerOnDevices(device)
 
     def power_off(self, device: int):
         """Power off the specified device."""
         LOGGER.debug('Power off device %d', device)
         self._mqtt_send(f'cec/device/{device}/power', 'off')
-        self.cec_client.StandbyDevices(device)
+        # self.cec_client.StandbyDevices(device)
 
     def volume_up(self, amount=1, update=True):
         """Increase the volume on the AVR."""
