@@ -9,7 +9,7 @@ import time
 from typing import Callable, List, Optional
 import cec
 
-SUPPRESS_S = 100.0
+SUPPRESS_S = 3.0
 
 LOGGER = logging.getLogger(__name__)
 
