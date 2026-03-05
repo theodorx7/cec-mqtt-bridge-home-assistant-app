@@ -1,6 +1,6 @@
 name: "HDMI-CEC MQTT Bridge"
 description: "Connecting HDMI-CEC devices to your home automation system."
-version: "1.2.4"
+version: "1.2.5"
 slug: "cec_mqtt_bridge"
 init: false
 arch:
