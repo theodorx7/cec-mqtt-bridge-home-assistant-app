@@ -356,7 +356,7 @@ class HdmiCec:
                 LOGGER.debug('device %d %04x %-12s power %d %s', device, physical_address,
                             self.cec_client.LogicalAddressToString(device), power,
                             power_str)
-                self._mqtt_send(f'cec/device/{device}/power', self._ha_power(power_str))
+                # self._mqtt_send(f'cec/device/{device}/power', self._ha_power(power_str))
 
         # Ask AVR to send us an audio status update
         mute, volume = self.decode_volume(self.cec_client.AudioStatus())
