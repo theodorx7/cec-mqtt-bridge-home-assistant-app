@@ -162,6 +162,9 @@ class HdmiCec:
                     self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
                 self.volume_update.set()
             elif opcode == cec.CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:
+                if time.monotonic() < self._suppress_until.get(5, 0):
+                    return 0
+            
                 if int(cmd[9:], base=16) == 1:
                     self._mqtt_send('cec/device/5/power', 'on')
                 else:
