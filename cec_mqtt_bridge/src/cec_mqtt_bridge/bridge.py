@@ -63,10 +63,10 @@ class Bridge:
                 user,
                 password=self.config.get('mqtt_password') or ""
             )
-        if self.config.get("mqtt_tls", False):
+        if self.config.get("mqtt_tls"):
             self.mqtt_client.tls_set()
         
-        self.mqtt_client.will_set(self.mqtt_prefix + '/bridge/status', 'offline', qos=1, retain=True)
+        self.mqtt_client.will_set(f"{self.mqtt_prefix}/bridge/status", "offline", qos=1, retain=True)
 
         tries = 30
         while tries > 0:
@@ -87,8 +87,6 @@ class Bridge:
             LOGGER.error("Failed to connect to the MQTT broker after multiple attempts")
             raise ConnectionError('MQTT connect retries exhausted. Can\'t continue.')
 
-        self.mqtt_client.loop_start()
-
         # Setup HDMI-CEC
         LOGGER.info("Initialising CEC...")
         self.cec_class = hdmicec.HdmiCec(
@@ -98,6 +96,8 @@ class Bridge:
             mqtt_send=self.mqtt_publish,
             volume_correction=self.config.get("volume_correction"),
         )
+
+        self.mqtt_client.loop_start()
 
     def mqtt_on_connect(self, client: mqtt.Client, _userdata, _flags, ret):
         """MQTT on connect callback
@@ -116,12 +116,12 @@ class Bridge:
 
         # Subscribe to CEC commands
         client.subscribe([
-            (self.mqtt_prefix + '/cec/device/+/power/set', 0),
-            (self.mqtt_prefix + '/cec/audio/volume/set', 0),
-            (self.mqtt_prefix + '/cec/audio/mute/set', 0),
-            (self.mqtt_prefix + '/cec/tx', 0),
-            (self.mqtt_prefix + '/cec/refresh', 0),
-            (self.mqtt_prefix + '/cec/scan', 0),
+            (f"{self.mqtt_prefix}/cec/device/+/power/set", 0),
+            (f"{self.mqtt_prefix}/cec/audio/volume/set", 0),
+            (f"{self.mqtt_prefix}/cec/audio/mute/set", 0),
+            (f"{self.mqtt_prefix}/cec/tx", 0),
+            (f"{self.mqtt_prefix}/cec/refresh", 0),
+            (f"{self.mqtt_prefix}/cec/scan", 0),
         ])
 
         # Publish birth message
@@ -134,9 +134,7 @@ class Bridge:
         else:
             self._ha_clear_optional_device_discovery()
         
-        cec_class = getattr(self, 'cec_class', None)
-        if cec_class is not None:
-            cec_class.publish_status()
+        self.cec_class.publish_status()
 
     def mqtt_publish(self, topic, message=None, qos=0, retain=True):
         """Publish a MQTT message prefixed with bridge prefix.
@@ -149,7 +147,7 @@ class Bridge:
         """
         LOGGER.debug('Send to topic %s: %s', topic, message)
         return self.mqtt_client.publish(
-            self.mqtt_prefix + '/' + topic,
+            f"{self.mqtt_prefix}/{topic}",
             message,
             qos=qos,
             retain=retain,
@@ -229,11 +227,13 @@ class Bridge:
         self.mqtt_client.publish(self.ha_tx_discovery_topic, json.dumps(tx_payload), qos=1, retain=True)
     
     def _ha_clear_optional_device_discovery(self, *, wait: bool = False) -> None:
-        i1 = self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True)
-        i2 = self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True)
+        infos = (
+            self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True),
+            self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True),
+        )
         if wait:
-            i1.wait_for_publish(timeout=2)
-            i2.wait_for_publish(timeout=2)
+            for info in infos:
+                info.wait_for_publish(timeout=2)
         
     def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
         """Process message on subscibed MQTT topic
@@ -338,11 +338,9 @@ def main():
     try:
         while not stop_event.is_set():
             # Refresh CEC state
-            if bridge.cec_class and refresh_delay:
+            if refresh_delay:
                 bridge.cec_class.refresh()
-                stop_event.wait(refresh_delay)
-            else:
-                stop_event.wait(3600)
+            stop_event.wait(refresh_delay or 3600)
     finally:
         bridge.cleanup()
 
