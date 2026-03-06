@@ -94,6 +94,7 @@ class Bridge:
             mqtt_send=self.mqtt_publish,
             volume_correction=self.config.get("volume_correction"),
         )
+
     def mqtt_on_connect(self, client: mqtt.Client, _userdata, _flags, ret):
         """MQTT on connect callback
 
@@ -126,9 +127,13 @@ class Bridge:
             self._ha_publish_device_discovery()
         else:
             self._ha_clear_device_discovery()
+        
+        cec_class = getattr(self, 'cec_class', None)
+        if cec_class is not None:
+            cec_class.publish_status()
 
     def mqtt_publish(self, topic, message=None, qos=0, retain=True):
-        """Publish a MQTT message prefixed with bridge prefix
+        """Publish a MQTT message prefixed with bridge prefix.
 
         Args:
             topic (str): The topic that the message should be published on
@@ -137,7 +142,12 @@ class Bridge:
             retain (bool, optional): _description_. Defaults to True.
         """
         LOGGER.debug('Send to topic %s: %s', topic, message)
-        self.mqtt_client.publish(self.mqtt_prefix + '/' + topic, message, qos=qos, retain=retain)
+        return self.mqtt_client.publish(
+            self.mqtt_prefix + '/' + topic,
+            message,
+            qos=qos,
+            retain=retain,
+        )
 
     def _ha_publish_device_discovery(self) -> None:
         device_ctx = {
@@ -236,8 +246,12 @@ class Bridge:
 
     def cleanup(self):
         """Terminates the connection"""
-        self.mqtt_publish('bridge/status', 'offline', qos=1, retain=True)
-
+        bridge_info = self.mqtt_publish('bridge/status', 'offline', qos=1, retain=True)
+        cec_info = self.mqtt_publish('cec/status', 'offline', qos=1, retain=True)
+    
+        bridge_info.wait_for_publish(timeout=2)
+        cec_info.wait_for_publish(timeout=2)
+    
         if not self.ha_discovery_enabled:
             self._ha_clear_device_discovery(wait=True)
     
