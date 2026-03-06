@@ -208,6 +208,7 @@ class Bridge:
             "availability_mode": "all",
             "payload_available": "online",
             "payload_not_available": "offline",
+            "icon": "mdi:chevron-double-down",
         }
         tx_payload = {
             "device": device_ctx,
@@ -219,6 +220,7 @@ class Bridge:
             "availability_mode": "all",
             "payload_available": "online",
             "payload_not_available": "offline",
+            "icon": "mdi:chevron-double-up",
         }
 
         self.mqtt_client.publish(self.ha_rx_discovery_topic, json.dumps(rx_payload), qos=1, retain=True)
