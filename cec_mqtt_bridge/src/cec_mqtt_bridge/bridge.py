@@ -35,9 +35,13 @@ class Bridge:
         instance = "".join(ch if (ch.isalnum() or ch in "_-") else "_" for ch in self.mqtt_prefix)
         self.ha_rx_id = f"cec_last_received_{instance}"
         self.ha_tx_id = f"cec_last_sent_{instance}"
+        self.ha_cec_status_id = f"cec_bus_status_{instance}"
         self.ha_instance_label = instance
         self.ha_rx_discovery_topic = f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_rx_id}/config"
         self.ha_tx_discovery_topic = f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_tx_id}/config"
+        self.ha_cec_status_discovery_topic = (
+            f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_cec_status_id}/config"
+        )
 
         def mqtt_on_message(client: mqtt.Client, userdata, message):
             """Run mqtt callback in a seperate thread."""
@@ -123,10 +127,12 @@ class Bridge:
         # Publish birth message
         self.mqtt_publish('bridge/status', 'online', qos=1, retain=True)
         # HA MQTT Device Discovery toggle
+        self._ha_publish_cec_status_discovery()
+
         if self.ha_discovery_enabled:
-            self._ha_publish_device_discovery()
+            self._ha_publish_optional_device_discovery()
         else:
-            self._ha_clear_device_discovery()
+            self._ha_clear_optional_device_discovery()
         
         cec_class = getattr(self, 'cec_class', None)
         if cec_class is not None:
@@ -149,7 +155,36 @@ class Bridge:
             retain=retain,
         )
 
-    def _ha_publish_device_discovery(self) -> None:
+    def _ha_publish_cec_status_discovery(self) -> None:
+        device_ctx = {
+            "identifiers": [self.ha_device_id],
+            "name": "HDMI-CEC MQTT Bridge",
+        }
+        origin_ctx = {
+            "name": HA_ORIGIN_NAME,
+            "support_url": HA_SUPPORT_URL,
+        }
+
+        cec_status_payload = {
+            "device": device_ctx,
+            "origin": origin_ctx,
+            "name": f"CEC Bus Status ({self.ha_instance_label})",
+            "unique_id": self.ha_cec_status_id,
+            "state_topic": f"{self.mqtt_prefix}/cec/status",
+            "availability_topic": f"{self.mqtt_prefix}/bridge/status",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "icon": "mdi:hdmi-port",
+        }
+
+        self.mqtt_client.publish(
+            self.ha_cec_status_discovery_topic,
+            json.dumps(cec_status_payload),
+            qos=1,
+            retain=True,
+        )
+    
+    def _ha_publish_optional_device_discovery(self) -> None:
         device_ctx = {
             "identifiers": [self.ha_device_id],
             "name": "HDMI-CEC MQTT Bridge",
@@ -162,6 +197,7 @@ class Bridge:
             {"topic": f"{self.mqtt_prefix}/bridge/status"},
             {"topic": f"{self.mqtt_prefix}/cec/status"},
         ]
+
         rx_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
@@ -184,11 +220,11 @@ class Bridge:
             "payload_available": "online",
             "payload_not_available": "offline",
         }
-    
+
         self.mqtt_client.publish(self.ha_rx_discovery_topic, json.dumps(rx_payload), qos=1, retain=True)
         self.mqtt_client.publish(self.ha_tx_discovery_topic, json.dumps(tx_payload), qos=1, retain=True)
     
-    def _ha_clear_device_discovery(self, *, wait: bool = False) -> None:
+    def _ha_clear_optional_device_discovery(self, *, wait: bool = False) -> None:
         i1 = self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True)
         i2 = self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True)
         if wait:
@@ -264,7 +300,7 @@ class Bridge:
         cec_info.wait_for_publish(timeout=2)
     
         if not self.ha_discovery_enabled:
-            self._ha_clear_device_discovery(wait=True)
+            self._ha_clear_optional_device_discovery(wait=True)
     
         self.mqtt_client.disconnect()
         self.mqtt_client.loop_stop()
