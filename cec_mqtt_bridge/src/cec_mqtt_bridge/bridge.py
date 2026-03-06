@@ -174,6 +174,8 @@ class Bridge:
             "availability_topic": f"{self.mqtt_prefix}/bridge/status",
             "payload_available": "online",
             "payload_not_available": "offline",
+            "device_class": "enum",
+            "options": ["online", "offline"],
             "icon": "mdi:hdmi-port",
         }
 
