@@ -158,13 +158,20 @@ class Bridge:
             "name": HA_ORIGIN_NAME,
             "support_url": HA_SUPPORT_URL,
         }
-
+        availability = [
+            {"topic": f"{self.mqtt_prefix}/bridge/status"},
+            {"topic": f"{self.mqtt_prefix}/cec/status"},
+        ]
         rx_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
             "name": f"Last Received CEC ({self.ha_instance_label})",
             "unique_id": self.ha_rx_id,
             "state_topic": f"{self.mqtt_prefix}/cec/rx",
+            "availability": availability,
+            "availability_mode": "all",
+            "payload_available": "online",
+            "payload_not_available": "offline",
         }
         tx_payload = {
             "device": device_ctx,
@@ -172,6 +179,10 @@ class Bridge:
             "name": f"Last Sent CEC ({self.ha_instance_label})",
             "unique_id": self.ha_tx_id,
             "state_topic": f"{self.mqtt_prefix}/cec/tx",
+            "availability": availability,
+            "availability_mode": "all",
+            "payload_available": "online",
+            "payload_not_available": "offline",
         }
     
         self.mqtt_client.publish(self.ha_rx_discovery_topic, json.dumps(rx_payload), qos=1, retain=True)
