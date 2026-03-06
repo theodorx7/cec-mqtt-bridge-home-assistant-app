@@ -6,7 +6,7 @@ import math
 import re
 import threading
 import time
-from typing import Callable, List, Optional
+from typing import Callable
 import cec
 
 SUPPRESS_S = 3.0
@@ -20,9 +20,9 @@ class HdmiCec:
         self,
         port: str,
         name: str,
-        devices: List[int],
+        devices: list[int],
         mqtt_send: Callable[..., None],
-        volume_correction: Optional[int] = None,
+        volume_correction: int | None = None,
     ):
         self._mqtt_send = mqtt_send
         self.devices = devices
@@ -61,6 +61,24 @@ class HdmiCec:
     def _ha_power(self, p: str) -> str:
         return {"toon": "on", "standby": "off", "tostandby": "off"}.get(p, p)
 
+    def _suppress(self, key: int | str):
+        self._suppress_until[key] = time.monotonic() + SUPPRESS_S
+    
+    def _is_suppressed(self, key: int | str) -> bool:
+        return time.monotonic() < self._suppress_until.get(key, 0)
+    
+    def _publish_power(self, device: int, power: str):
+        if not self._is_suppressed(device):
+            self._mqtt_send(f'cec/device/{device}/power', self._ha_power(power))
+    
+    def _publish_audio_status(self, audio_status: int, *, notify: bool = False):
+        mute, volume = self.decode_volume(audio_status)
+        self._mqtt_send('cec/audio/volume', volume)
+        if not self._is_suppressed("mute"):
+            self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
+        if notify:
+            self.volume_update.set()
+    
     def _set_cec_connected(self, connected: bool, force: bool = False):
         if not force and self._cec_connected == connected:
             return
@@ -123,19 +141,18 @@ class HdmiCec:
         elif 'CEC_TRANSMIT failed' in message and 'errno=64' in message:
             self._set_cec_connected(False)
 
-        if not self.refreshing:
-            # TV (0): power status changed from 'unknown' to 'on'
-            match = re.search(
-                r'\(([0-9a-fA-F])\): power status changed from \'.*\' to \'(.*)\'',
-                message
-            )
-            if match:
-                device = int(match.group(1), 16)
-                power = match.group(2)
-                mapped = self._ha_power(power)
+        if self.refreshing:
+            return
         
-                if time.monotonic() >= self._suppress_until.get(device, 0):
-                    self._mqtt_send(f'cec/device/{device}/power', mapped)
+        # TV (0): power status changed from 'unknown' to 'on'
+        match = re.search(
+            r'\(([0-9a-fA-F])\): power status changed from \'.*\' to \'(.*)\'',
+            message
+        )
+        if match:
+            device = int(match.group(1), 16)
+            power = match.group(2)
+            self._publish_power(device, power)
 
     # key press callback
     def _on_key_press_callback(self, key, duration):
@@ -148,112 +165,100 @@ class HdmiCec:
 
     def _on_command_callback(self, cmd):
         self._set_cec_connected(True)
-        initiator = int(cmd[3:4], base=16)
-        destination = int(cmd[4:5], base=16)
-        opcode = int(cmd[6:8], base=16)
+        initiator = int(cmd[3:4], 16)
+        destination = int(cmd[4:5], 16)
+        opcode = int(cmd[6:8], 16)
         LOGGER.debug('_on_command_callback %02x %s %x -> %x %s',
                      opcode, self.cec_client.OpcodeToString(opcode), initiator,
                      destination, cmd)
         # Send raw command to mqtt
         self._mqtt_send('cec/rx', cmd[3:])
 
-        if not self.refreshing:
-            if opcode == cec.CEC_OPCODE_REPORT_POWER_STATUS:
-                power = int(cmd[9:], base=16)
-                value = self._ha_power(self.cec_client.PowerStatusToString(power))
-            
-                if time.monotonic() < self._suppress_until.get(initiator, 0):
-                    return 0
-            
-                self._mqtt_send(f'cec/device/{initiator}/power', value)
-            elif opcode == cec.CEC_OPCODE_DEVICE_VENDOR_ID:
-                vendor_id = int((cmd[9:]).replace(':',''), base=16)
-                self._mqtt_send(f'cec/device/{initiator}/vendor',
-                                self.cec_client.VendorIdToString(vendor_id))
-            elif opcode == cec.CEC_OPCODE_REPORT_PHYSICAL_ADDRESS:
-                physical_address = int((cmd[9:14]).replace(':',''), base=16)
-                self._mqtt_send(f'cec/device/{initiator}/address',
-                                 f'{physical_address:04x}')
-            elif opcode == cec.CEC_OPCODE_REPORT_AUDIO_STATUS:
-                mute, volume = self.decode_volume(int(cmd[9:], base=16))
-                self._mqtt_send('cec/audio/volume', volume)
-                if time.monotonic() >= self._suppress_until.get("mute", 0):
-                    self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
-                self.volume_update.set()
-            elif opcode == cec.CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:
-                if time.monotonic() < self._suppress_until.get(5, 0):
-                    return 0
-            
-                if int(cmd[9:], base=16) == 1:
-                    self._mqtt_send('cec/device/5/power', 'on')
-                else:
-                    self._mqtt_send('cec/device/5/power', 'off')
+        if self.refreshing:
+            return 0
+
+        if opcode == cec.CEC_OPCODE_REPORT_POWER_STATUS:
+            power = int(cmd[9:], 16)
+            self._publish_power(initiator, self.cec_client.PowerStatusToString(power))
+        elif opcode == cec.CEC_OPCODE_DEVICE_VENDOR_ID:
+            vendor_id = int(cmd[9:].replace(':', ''), 16)
+            self._mqtt_send(
+                f'cec/device/{initiator}/vendor',
+                self.cec_client.VendorIdToString(vendor_id),
+            )
+        elif opcode == cec.CEC_OPCODE_REPORT_PHYSICAL_ADDRESS:
+            physical_address = int(cmd[9:14].replace(':', ''), 16)
+            self._mqtt_send(f'cec/device/{initiator}/address', f'{physical_address:04x}')
+        elif opcode == cec.CEC_OPCODE_REPORT_AUDIO_STATUS:
+            self._publish_audio_status(int(cmd[9:], 16), notify=True)
+        elif opcode == cec.CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:
+            if self._is_suppressed(5):
+                return 0
+        
+            self._mqtt_send(
+                'cec/device/5/power',
+                'on' if int(cmd[9:], 16) == 1 else 'off',
+            )
 
         return 0
 
     def power_on(self, device: int):
         """Power on the specified device."""
         LOGGER.debug('Power on device %d', device)
-        self._suppress_until[device] = time.monotonic() + SUPPRESS_S
+        self._suppress(device)
         self._mqtt_send(f'cec/device/{device}/power', 'on')
         self.cec_client.PowerOnDevices(device)
 
     def power_off(self, device: int):
         """Power off the specified device."""
         LOGGER.debug('Power off device %d', device)
-        self._suppress_until[device] = time.monotonic() + SUPPRESS_S
+        self._suppress(device)
         self._mqtt_send(f'cec/device/{device}/power', 'off')
         self.cec_client.StandbyDevices(device)
 
+    def _volume_step(self, up: bool, amount=1, update=True):
+        action = self.cec_client.VolumeUp if up else self.cec_client.VolumeDown
+        direction = 'up' if up else 'down'
+        fast = amount >= 10
+    
+        LOGGER.debug('Volume %s%s with %d', direction, ' fast' if fast else '', amount)
+    
+        for i in range(amount):
+            if fast:
+                action(i == amount - 1)
+            else:
+                action()
+            time.sleep(0.1)
+    
+        if update:
+            self.tx_command('71', 5)
+
     def volume_up(self, amount=1, update=True):
         """Increase the volume on the AVR."""
-        if amount >= 10:
-            LOGGER.debug('Volume up fast with %d', amount)
-            for i in range(amount):
-                self.cec_client.VolumeUp(i == amount - 1)
-                time.sleep(0.1)
-        else:
-            LOGGER.debug('Volume up with %d', amount)
-            for i in range(amount):
-                self.cec_client.VolumeUp()
-                time.sleep(0.1)
-
-        if update:
-            # Ask AVR to send us an update
-            self.tx_command('71', 5)
+        self._volume_step(True, amount, update)
 
     def volume_down(self, amount=1, update=True):
         """Decrease the volume on the AVR."""
-        if amount >= 10:
-            LOGGER.debug('Volume down fast with %d', amount)
-            for i in range(amount):
-                self.cec_client.VolumeDown(i == amount - 1)
-                time.sleep(0.1)
+        self._volume_step(False, amount, update)
+
+    def _set_mute(self, muted: bool):
+        LOGGER.debug('%s AVR', 'Mute' if muted else 'Unmute')
+        self._suppress("mute")
+        self._mqtt_send('cec/audio/mute', 'on' if muted else 'off')
+        if muted:
+            self.cec_client.AudioMute()
         else:
-            LOGGER.debug('Volume down with %d', amount)
-            for i in range(amount):
-                self.cec_client.VolumeDown()
-                time.sleep(0.1)
-
-        if update:
-            # Ask AVR to send us an update
-            self.tx_command('71', 5)
-
+            self.cec_client.AudioUnmute()
+    
     def volume_mute(self):
         """Mute the volume on the AVR."""
-        LOGGER.debug('Mute AVR')
-        self._suppress_until["mute"] = time.monotonic() + SUPPRESS_S
-        self._mqtt_send('cec/audio/mute', 'on')
-        self.cec_client.AudioMute()
+        self._set_mute(True)
 
     def volume_unmute(self):
         """Unmute the volume on the AVR."""
-        LOGGER.debug('Unmute AVR')
-        self._suppress_until["mute"] = time.monotonic() + SUPPRESS_S
-        self._mqtt_send('cec/audio/mute', 'off')
-        self.cec_client.AudioUnmute()
+        self._set_mute(False)
 
-    def _request_avr_volume(self, timeout: float = 0.8, retries: int = 3) -> Optional[int]:
+    def _request_avr_volume(self, timeout: float = 0.8, retries: int = 3) -> int | None:
         """Request AVR volume via Give Audio Status (0x71) and wait for Report Audio Status (0x7A)."""
         for _ in range(retries):
             self.volume_update.clear()
@@ -343,7 +348,7 @@ class HdmiCec:
             if my_token == self._volume_token:
                 self.setting_volume = False
 
-    def decode_volume(self, audio_status) -> tuple[bool, int]:
+    def decode_volume(self, audio_status: int) -> tuple[bool, int]:
         """Decodes CEC audio status into mute and real volume
 
         Args:
@@ -354,18 +359,15 @@ class HdmiCec:
         """
         mute = audio_status > 127
         volume = audio_status - 128 if mute else audio_status
-        real_volume = int(math.ceil(volume * self.volume_correction))
+        real_volume = math.ceil(volume * self.volume_correction)
 
         LOGGER.debug('Audio Status = %s -> Mute = %s, Volume = %s, Real Volume = %s',
                      audio_status, mute, volume, real_volume)
         return mute, real_volume
 
-    def tx_command(self, command: str, device: int = None):
+    def tx_command(self, command: str, device: int | None = None):
         """Send a raw CEC command to the specified device."""
-        if device is None:
-            full_command = command
-        else:
-            full_command = f'{self.device_id * 16 + device:x}:{command}'
+        full_command = command if device is None else f'{self.device_id * 16 + device:x}:{command}'
 
         LOGGER.debug('Sending %s', full_command)
         self.cec_client.Transmit(self.cec_client.CommandFromString(full_command))
@@ -378,11 +380,12 @@ class HdmiCec:
     
         LOGGER.debug('Refreshing HDMI-CEC...')
         self.refreshing = True
-        for device in self.devices:
-            # Get power status values of discovered devices from ceclib
-            # This will setting unknown power state when device does not respond.
-            physical_address = self.cec_client.GetDevicePhysicalAddress(device)
-            if physical_address != 0xFFFF:
+        try:
+            for device in self.devices:
+                physical_address = self.cec_client.GetDevicePhysicalAddress(device)
+                if physical_address == 0xFFFF:
+                    continue
+    
                 self._set_cec_connected(True)
                 power = self.cec_client.GetDevicePowerStatus(device)
                 power_str = self.cec_client.PowerStatusToString(power)
@@ -395,46 +398,37 @@ class HdmiCec:
                     power_str,
                 )
     
-                mapped = self._ha_power(power_str)
-                if time.monotonic() >= self._suppress_until.get(device, 0):
-                    self._mqtt_send(f'cec/device/{device}/power', mapped)
+                self._publish_power(device, power_str)
     
-        # Ask AVR to send us an audio status update
-        mute, volume = self.decode_volume(self.cec_client.AudioStatus())
-        self._mqtt_send('cec/audio/volume', volume)
-        if time.monotonic() >= self._suppress_until.get("mute", 0):
-            self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
-        self.refreshing = False
+            self._publish_audio_status(self.cec_client.AudioStatus())
+        finally:
+            self.refreshing = False
 
     def scan(self):
         """scan for devices on the HDMI CEC bus"""
         LOGGER.debug("requesting CEC bus information ...")
         self.refreshing = True
-        for device in self.devices:
-            # Get power status values of discovered devices from ceclib
-            # This will setting unknown power state when device does not respond.
-            physical_address = self.cec_client.GetDevicePhysicalAddress(device)
-            if physical_address != 0xFFFF:
+        try:
+            for device in self.devices:
+                physical_address = self.cec_client.GetDevicePhysicalAddress(device)
+                if physical_address == 0xFFFF:
+                    continue
+    
                 self._set_cec_connected(True)
-                vendor_id   = self.cec_client.GetDeviceVendorId(device)
-                active      = self.cec_client.IsActiveSource(device)
+                vendor_id = self.cec_client.GetDeviceVendorId(device)
+                active = self.cec_client.IsActiveSource(device)
                 cec_version = self.cec_client.GetDeviceCecVersion(device)
-                power       = self.cec_client.GetDevicePowerStatus(device)
-                osd_name    = self.cec_client.GetDeviceOSDName(device)
-
+                power = self.cec_client.GetDevicePowerStatus(device)
+                osd_name = self.cec_client.GetDeviceOSDName(device)
+    
                 self._mqtt_send(f'cec/device/{device}/type', self.cec_client.LogicalAddressToString(device))
                 self._mqtt_send(f'cec/device/{device}/address', f'{physical_address:04x}')
                 self._mqtt_send(f'cec/device/{device}/active', str(active))
                 self._mqtt_send(f'cec/device/{device}/vendor', self.cec_client.VendorIdToString(vendor_id))
                 self._mqtt_send(f'cec/device/{device}/osd', osd_name)
                 self._mqtt_send(f'cec/device/{device}/cecver', self.cec_client.CecVersionToString(cec_version))
-                mapped = self._ha_power(self.cec_client.PowerStatusToString(power))
-                if time.monotonic() >= self._suppress_until.get(device, 0):
-                    self._mqtt_send(f'cec/device/{device}/power', mapped)
-        
-        # Ask AVR to send us an audio status update
-        mute, volume = self.decode_volume(self.cec_client.AudioStatus())
-        self._mqtt_send('cec/audio/volume', volume)
-        if time.monotonic() >= self._suppress_until.get("mute", 0):
-            self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
-        self.refreshing = False
+                self._publish_power(device, self.cec_client.PowerStatusToString(power))
+    
+            self._publish_audio_status(self.cec_client.AudioStatus())
+        finally:
+            self.refreshing = False
