@@ -15,7 +15,7 @@ Connect yours AV-devices to your Home Automation system. You can control and mon
  - Relay HDMI-CEC messages from broker to HDMI (TX)
 
 ### Note
-This project is based on core parts of [`ballle98/cec-mqtt-bridge`](https://github.com/ballle98/cec-mqtt-bridge), which also includes IR/LIRC functionality.
+This project is based on core parts of [`michaelarnauts/cec-mqtt-bridge`](https://github.com/michaelarnauts/cec-mqtt-bridge) / [`ballle98/cec-mqtt-bridge`](https://github.com/ballle98/cec-mqtt-bridge), which also includes IR/LIRC functionality.
 This implementation does not include IR/LIRC; only HDMI-CEC ↔ MQTT is supported.
 
 
