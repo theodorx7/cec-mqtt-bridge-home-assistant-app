@@ -94,7 +94,7 @@ class Bridge:
         self.cec_class = hdmicec.HdmiCec(
             port=self.config.get('cec_port') or "",
             name=self.config['cec_name'],
-            devices=[int(x.strip()) for x in self.config['cec_devices'].split(',') if x.strip()],
+            devices=[int(x) for x in self.config["cec_devices"].replace(",", " ").split()],
             mqtt_send=self.mqtt_publish,
             volume_correction=self.config.get("volume_correction"),
         )
