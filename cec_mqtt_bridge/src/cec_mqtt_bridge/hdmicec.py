@@ -187,11 +187,25 @@ class HdmiCec:
             power = int(cmd[9:], 16)
             self._publish_power(initiator, self.cec_client.PowerStatusToString(power))
         elif opcode == cec.CEC_OPCODE_DEVICE_VENDOR_ID:
-            vendor_id = int(cmd[9:].replace(':', ''), 16)
+            vendor_id = int((cmd[9:]).replace(':', ''), base=16)
             self._mqtt_send(
                 f'cec/device/{initiator}/vendor',
-                self.cec_client.VendorIdToString(vendor_id),
+                self.cec_client.VendorIdToString(vendor_id)
             )
+            
+            # Some AVRs may announce wake-up on logical address 3,
+            # while the actual power status is tracked on 5 (Audio System).
+            if initiator == 3 and 5 in self.devices:
+                LOGGER.debug(
+                    'AVR announced vendor id on logical address 3; requesting power status for 5'
+                )
+                self.tx_command('8F', 5)
+            elif initiator in self.devices:
+                LOGGER.debug(
+                    'Device %d announced vendor id; requesting power status',
+                    initiator
+                )
+                self.tx_command('8F', initiator)
         elif opcode == cec.CEC_OPCODE_REPORT_PHYSICAL_ADDRESS:
             physical_address = int(cmd[9:14].replace(':', ''), 16)
             self._mqtt_send(f'cec/device/{initiator}/address', f'{physical_address:04x}')
