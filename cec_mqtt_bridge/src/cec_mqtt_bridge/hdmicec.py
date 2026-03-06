@@ -80,11 +80,17 @@ class HdmiCec:
             self.volume_update.set()
     
     def _set_cec_connected(self, connected: bool, force: bool = False):
-        if not force and self._cec_connected == connected:
+        changed = self._cec_connected != connected
+    
+        if not force and not changed:
             return
+    
         self._cec_connected = connected
         state = 'online' if connected else 'offline'
-        LOGGER.info('CEC bus status changed: %s', state)
+    
+        if changed:
+            LOGGER.info('CEC bus status changed: %s', state)
+    
         self._mqtt_send('cec/status', state, qos=1, retain=True)
 
     def publish_status(self):
