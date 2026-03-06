@@ -66,6 +66,7 @@ Different AVR brands use different volume scales. It’s important to set the ma
 | topic                          | body                                    | remark                                           |
 |:-------------------------------|-----------------------------------------|--------------------------------------------------|
 | `prefix`/bridge/status               | `online` / `offline`                    | Report availability status of the bridge.        |
+| `prefix`/cec/status            | `online` / `offline`                    | Report HDMI-CEC bus connection status.           |
 | `prefix`/cec/device/`laddr`/type     | `on` / `off`                            | Report type of device with logical address `laddr` (0-14).      |
 | `prefix`/cec/device/`laddr`/address  | `on` / `off`                            | Report physical address of device with logical address `laddr` (0-14).  |
 | `prefix`/cec/device/`laddr`/active   | `yes` / `no`                            | Report active source status of device with logical address `laddr` (0-14).  |
