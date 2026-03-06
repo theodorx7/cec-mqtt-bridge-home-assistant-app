@@ -34,6 +34,7 @@ class HdmiCec:
         self.volume_update = threading.Event()
         self._volume_token = 0
         self._volume_token_lock = threading.Lock()
+        self._cec_connected = None
 
         self.cec_config = cec.libcec_configuration()
         self.cec_config.strDeviceName = name
@@ -59,6 +60,18 @@ class HdmiCec:
 
     def _ha_power(self, p: str) -> str:
         return {"toon": "on", "standby": "off", "tostandby": "off"}.get(p, p)
+
+    def _set_cec_connected(self, connected: bool, force: bool = False):
+        if not force and self._cec_connected == connected:
+            return
+        self._cec_connected = connected
+        state = 'online' if connected else 'offline'
+        LOGGER.info('CEC bus status changed: %s', state)
+        self._mqtt_send('cec/status', state, qos=1, retain=True)
+
+    def publish_status(self):
+        if self._cec_connected is not None:
+            self._set_cec_connected(self._cec_connected, force=True)
 
     def _open_cec_adapter(self, explicit_port: str) -> tuple[str, str]:
         """Open explicit libCEC port or first available autodetected adapter."""
@@ -105,6 +118,11 @@ class HdmiCec:
         tag, py = m.get(level, ("DEBUG", logging.DEBUG))
         LOGGER.log(py, "libcec: [%s] %s", tag, message)
 
+        if 'physical address is invalid' in message:
+            self._set_cec_connected(False)
+        elif 'CEC_TRANSMIT failed' in message and 'errno=64' in message:
+            self._set_cec_connected(False)
+
         if not self.refreshing:
             # TV (0): power status changed from 'unknown' to 'on'
             match = re.search(
@@ -129,6 +147,7 @@ class HdmiCec:
     # https://www.hdmi.org/docs/Hdmi13aSpecs
 
     def _on_command_callback(self, cmd):
+        self._set_cec_connected(True)
         initiator = int(cmd[3:4], base=16)
         destination = int(cmd[4:5], base=16)
         opcode = int(cmd[6:8], base=16)
@@ -364,6 +383,7 @@ class HdmiCec:
             # This will setting unknown power state when device does not respond.
             physical_address = self.cec_client.GetDevicePhysicalAddress(device)
             if physical_address != 0xFFFF:
+                self._set_cec_connected(True)
                 power = self.cec_client.GetDevicePowerStatus(device)
                 power_str = self.cec_client.PowerStatusToString(power)
                 LOGGER.debug(
@@ -395,6 +415,7 @@ class HdmiCec:
             # This will setting unknown power state when device does not respond.
             physical_address = self.cec_client.GetDevicePhysicalAddress(device)
             if physical_address != 0xFFFF:
+                self._set_cec_connected(True)
                 vendor_id   = self.cec_client.GetDeviceVendorId(device)
                 active      = self.cec_client.IsActiveSource(device)
                 cec_version = self.cec_client.GetDeviceCecVersion(device)
