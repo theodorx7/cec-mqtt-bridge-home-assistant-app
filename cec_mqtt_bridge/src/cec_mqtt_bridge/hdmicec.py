@@ -179,7 +179,6 @@ class HdmiCec:
 
     # command callback
     # https://github.com/Pulse-Eight/libcec/blob/master/include/cectypes.h
-    # https://www.hdmi.org/docs/Hdmi13aSpecs
 
     def _on_command_callback(self, cmd):
         self._set_cec_connected(True)
