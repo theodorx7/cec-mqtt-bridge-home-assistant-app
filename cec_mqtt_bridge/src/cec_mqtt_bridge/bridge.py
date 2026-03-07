@@ -212,7 +212,7 @@ class Bridge:
         volume_native_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Volume Level ({self.ha_instance_label})",
+            "name": f"Volume Level 0-{int(self.config.get('volume_correction', 100))} ({self.ha_instance_label})",
             "unique_id": self.ha_core_entity_ids["volume_native"],
             "state_topic": f"{self.mqtt_prefix}/cec/audio/volume_native",
             "availability": availability,
