@@ -202,19 +202,19 @@ class Bridge:
             "payload_available": "online",
             "payload_not_available": "offline",
             "unit_of_measurement": "%",
-            "icon": "mdi:volume-high",
+            "icon": "mdi:knob",
         }
         volume_normalized_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Normalized Volume 0.0-1.0 ({self.ha_instance_label})",
+            "name": f"Volume 0-1.0 ({self.ha_instance_label})",
             "unique_id": self.ha_core_entity_ids["volume_normalized"],
             "state_topic": f"{self.mqtt_prefix}/cec/audio/volume_normalized",
             "availability": availability,
             "availability_mode": "all",
             "payload_available": "online",
             "payload_not_available": "offline",
-            "icon": "mdi:volume-medium",
+            "icon": "mdi:knob",
         }
         volume_native_payload = {
             "device": device_ctx,
