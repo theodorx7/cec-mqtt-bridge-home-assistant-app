@@ -207,7 +207,7 @@ class Bridge:
         volume_normalized_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Volume 0-1.0 ({self.ha_instance_label})",
+            "name": f"Volume Level 0-1 ({self.ha_instance_label})",
             "unique_id": self.ha_core_entity_ids["volume_normalized"],
             "state_topic": f"{self.mqtt_prefix}/cec/audio/volume_normalized",
             "availability": availability,
