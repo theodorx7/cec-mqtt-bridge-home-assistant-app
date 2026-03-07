@@ -74,8 +74,6 @@ class HdmiCec:
     
     def _publish_audio_status(self, audio_status: int, *, notify: bool = False):
         mute, volume_native = self.decode_volume(audio_status)
-        if volume_native is None:
-            return
         volume_percent = self._native_to_percent(volume_native)
         volume_level = round(volume_percent / 100.0, 3)
     
@@ -313,8 +311,7 @@ class HdmiCec:
     
             if self.volume_update.wait(timeout):
                 _, volume_native = self.decode_volume(self.cec_client.AudioStatus())
-                if volume_native is not None:
-                    return volume_native
+                return volume_native
     
         return None
     
@@ -347,9 +344,10 @@ class HdmiCec:
             if current is None:
                 LOGGER.warning('No AVR volume status response (0x7A)')
                 return
-
-            # 2) Correction passes: compute diff -> send hold-style batch -> verify -> repeat if needed
+    
+            # 2) Correction passes: compute diff -> send ALL steps (with delay) -> verify -> repeat if needed
             max_passes = 5
+            step_delay = 0.0
             settle_delay = 0.5
     
             for _pass in range(max_passes):
@@ -362,20 +360,21 @@ class HdmiCec:
     
                 step_up = diff > 0
                 steps = abs(diff)
-                
-                hold_steps = max(1, math.ceil(steps / 2))
-                
+    
                 LOGGER.debug(
-                    'Pass %d/%d: current=%d target=%d diff=%d hold_steps=%d',
-                    _pass + 1, max_passes, current, requested_native, diff, hold_steps
+                    'Pass %d/%d: current=%d target=%d diff=%d steps=%d',
+                    _pass + 1, max_passes, current, requested_native, diff, steps
                 )
-                
-                action = self.cec_client.VolumeUp if step_up else self.cec_client.VolumeDown
-                
-                for i in range(hold_steps):
+    
+                # Send EXACTLY `steps` clicks in a single pass, with a real delay between clicks
+                for _ in range(steps):
                     if cancelled():
                         return
-                    action(i == hold_steps - 1)
+                    if step_up:
+                        self.cec_client.VolumeUp()
+                    else:
+                        self.cec_client.VolumeDown()
+                    time.sleep(step_delay)
     
                 # Let AVR catch up before querying status
                 time.sleep(settle_delay)
@@ -388,12 +387,9 @@ class HdmiCec:
                     return
     
                 if current is None:
-                    _, fallback_current = self.decode_volume(self.cec_client.AudioStatus())
-                    if fallback_current is not None:
-                        current = fallback_current
-                    else:
-                        LOGGER.warning('No valid AVR volume after hold-style batch verification')
-                        return
+                    # Fallback to cached value if 0x7A didn't arrive
+                    _, current_percent = self.decode_volume(self.cec_client.AudioStatus())
+                    current = self._percent_to_native(current_percent)
     
             LOGGER.warning(
                 'Volume set did not converge after %d passes (last=%d target=%d)',
@@ -405,19 +401,10 @@ class HdmiCec:
             if my_token == self._volume_token:
                 self.setting_volume = False
 
-    def decode_volume(self, audio_status: int) -> tuple[bool, int | None]:
+    def decode_volume(self, audio_status: int) -> tuple[bool, int]:
         """Decode CEC audio status into mute and AVR native volume."""
         mute = audio_status > 127
         volume_percent = audio_status - 128 if mute else audio_status
-    
-        if volume_percent > 100:
-            LOGGER.debug(
-                'Audio Status = %s -> Mute = %s, VolumePercent = unknown/reserved',
-                audio_status,
-                mute,
-            )
-            return mute, None
-    
         volume_native = int(math.ceil(volume_percent * self.volume_correction / 100.0))
     
         LOGGER.debug(
