@@ -72,7 +72,11 @@ class HdmiCec:
     
     def _publish_audio_status(self, audio_status: int, *, notify: bool = False):
         mute, volume_percent = self.decode_volume(audio_status)
+        volume_native = self._percent_to_native(volume_percent)
+    
         self._mqtt_send('cec/audio/volume', volume_percent)
+        self._mqtt_send('cec/audio/volume_native', volume_native)
+    
         if not self._is_suppressed("mute"):
             self._mqtt_send('cec/audio/mute', 'on' if mute else 'off')
         if notify:
