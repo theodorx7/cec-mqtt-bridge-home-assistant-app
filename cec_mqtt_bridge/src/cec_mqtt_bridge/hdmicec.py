@@ -3,6 +3,7 @@
 
 import json
 import logging
+import math
 import re
 import threading
 import time
@@ -72,8 +73,8 @@ class HdmiCec:
             self._mqtt_send(f'cec/device/{device}/power', self._ha_power(power))
     
     def _publish_audio_status(self, audio_status: int, *, notify: bool = False):
-        mute, volume_percent = self.decode_volume(audio_status)
-        volume_native = self._percent_to_native(volume_percent)
+        mute, volume_native = self.decode_volume(audio_status)
+        volume_percent = self._native_to_percent(volume_native)
         volume_level = round(volume_percent / 100.0, 3)
     
         self._mqtt_send(
@@ -290,9 +291,19 @@ class HdmiCec:
         self._set_mute(False)
 
     def _percent_to_native(self, volume_percent: int) -> int:
-        """Convert 0..100 volume into AVR native scale."""
-        return int(round(volume_percent * self.volume_correction / 100.0))
+        """Convert external 0..100 volume into AVR native scale."""
+        volume_percent = max(0, min(100, int(volume_percent)))
+        return int(math.ceil(volume_percent * self.volume_correction / 100.0))
 
+    def _native_to_percent(self, volume_native: int) -> int:
+        """Convert AVR native scale into external 0..100 volume."""
+        volume_native = max(0, min(self.volume_correction, int(volume_native)))
+    
+        if self.volume_correction <= 0:
+            return 0
+    
+        return int(round(volume_native * 100.0 / self.volume_correction))
+    
     def _request_avr_volume(self, timeout: float = 0.8, retries: int = 3) -> Optional[int]:
         """Request AVR volume and return it in AVR native scale."""
         for _ in range(retries):
@@ -300,8 +311,8 @@ class HdmiCec:
             self.tx_command('71', device=5)
     
             if self.volume_update.wait(timeout):
-                _, volume_percent = self.decode_volume(self.cec_client.AudioStatus())
-                return self._percent_to_native(volume_percent)
+                _, volume_native = self.decode_volume(self.cec_client.AudioStatus())
+                return volume_native
     
         return None
     
@@ -316,13 +327,13 @@ class HdmiCec:
         def cancelled() -> bool:
             return my_token != self._volume_token
     
-        requested_percent = requested_volume
-        requested_volume = self._percent_to_native(requested_percent)
+        requested_percent = max(0, min(100, int(requested_volume)))
+        requested_native = self._percent_to_native(requested_percent)
         
         LOGGER.debug(
             'Set volume to %d%% (native target=%d)',
             requested_percent,
-            requested_volume
+            requested_native,
         )
         self.setting_volume = True
     
@@ -344,7 +355,7 @@ class HdmiCec:
                 if cancelled():
                     return
     
-                diff = requested_volume - current
+                diff = requested_native - current
                 if diff == 0:
                     return
     
@@ -353,7 +364,7 @@ class HdmiCec:
     
                 LOGGER.debug(
                     'Pass %d/%d: current=%d target=%d diff=%d steps=%d',
-                    _pass + 1, max_passes, current, requested_volume, diff, steps
+                    _pass + 1, max_passes, current, requested_native, diff, steps
                 )
     
                 # Send EXACTLY `steps` clicks in a single pass, with a real delay between clicks
@@ -383,7 +394,7 @@ class HdmiCec:
     
             LOGGER.warning(
                 'Volume set did not converge after %d passes (last=%d target=%d)',
-                max_passes, current, requested_volume
+                max_passes, current, requested_native
             )
     
         finally:
@@ -391,23 +402,20 @@ class HdmiCec:
             if my_token == self._volume_token:
                 self.setting_volume = False
 
-    def decode_volume(self, audio_status) -> tuple[bool, int]:
-        """Decode CEC audio status into mute and normalized volume (0..100).
-    
-        Args:
-            audio_status (int): CEC audio status
-    
-        Returns:
-            tuple[bool, int]: mute, normalized volume
-        """
+    def decode_volume(self, audio_status: int) -> tuple[bool, int]:
+        """Decode CEC audio status into mute and AVR native volume."""
         mute = audio_status > 127
         volume_percent = audio_status - 128 if mute else audio_status
+        volume_native = int(math.ceil(volume_percent * self.volume_correction / 100.0))
     
         LOGGER.debug(
-            'Audio Status = %s -> Mute = %s, VolumePercent = %s',
-            audio_status, mute, volume_percent
+            'Audio Status = %s -> Mute = %s, VolumePercent = %s, VolumeNative = %s',
+            audio_status,
+            mute,
+            volume_percent,
+            volume_native,
         )
-        return mute, volume_percent
+        return mute, volume_native
     
     def tx_command(self, command: str, device: int | None = None):
         """Send a raw CEC command to the specified device."""
