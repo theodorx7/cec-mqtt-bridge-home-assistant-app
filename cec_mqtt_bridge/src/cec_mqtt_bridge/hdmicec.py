@@ -35,7 +35,7 @@ class HdmiCec:
         self.volume_update = threading.Event()
         self._volume_token = 0
         self._volume_token_lock = threading.Lock()
-        self._cec_connected = None
+        self._cec_connected = False
 
         self.cec_config = cec.libcec_configuration()
         self.cec_config.strDeviceName = name
@@ -106,8 +106,7 @@ class HdmiCec:
         self._mqtt_send('cec/status', state, qos=1, retain=True)
 
     def publish_status(self):
-        if self._cec_connected is not None:
-            self._set_cec_connected(self._cec_connected, force=True)
+        self._set_cec_connected(self._cec_connected, force=True)
 
     def _open_cec_adapter(self, explicit_port: str) -> tuple[str, str]:
         """Open explicit libCEC port or first available autodetected adapter."""
@@ -366,7 +365,7 @@ class HdmiCec:
                     _pass + 1, max_passes, current, requested_native, diff, steps
                 )
     
-                # Send EXACTLY `steps` clicks in a single pass, with a real delay between clicks
+                # Send EXACTLY `steps` clicks in a single pass
                 for _ in range(steps):
                     if cancelled():
                         return
@@ -388,8 +387,7 @@ class HdmiCec:
     
                 if current is None:
                     # Fallback to cached value if 0x7A didn't arrive
-                    _, current_percent = self.decode_volume(self.cec_client.AudioStatus())
-                    current = self._percent_to_native(current_percent)
+                    _, current = self.decode_volume(self.cec_client.AudioStatus())
     
             LOGGER.warning(
                 'Volume set did not converge after %d passes (last=%d target=%d)',
