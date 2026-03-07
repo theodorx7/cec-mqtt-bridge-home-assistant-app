@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """HDMI CEC interface to HDMI CEC MQTT bridge"""
 
-import json
 import logging
 import math
 import re
@@ -77,13 +76,8 @@ class HdmiCec:
         volume_percent = self._native_to_percent(volume_native)
         volume_level = round(volume_percent / 100.0, 3)
     
-        self._mqtt_send(
-            'cec/audio/volume',
-            json.dumps({
-                "percent": volume_percent,
-                "level": volume_level,
-            }),
-        )
+        self._mqtt_send('cec/audio/volume', volume_percent)
+        self._mqtt_send('cec/audio/volume_level', volume_level)
         self._mqtt_send('cec/audio/volume_native', volume_native)
     
         if not self._is_suppressed("mute"):
