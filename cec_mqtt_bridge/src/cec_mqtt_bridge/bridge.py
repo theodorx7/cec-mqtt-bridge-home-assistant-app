@@ -211,7 +211,7 @@ class Bridge:
             "availability_mode": "all",
             "payload_available": "online",
             "payload_not_available": "offline",
-            "icon": "mdi:volume-high",
+            "icon": "mdi:volume-source",
         }
     
         self.mqtt_client.publish(
