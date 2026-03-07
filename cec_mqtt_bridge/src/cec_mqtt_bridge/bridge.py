@@ -190,14 +190,14 @@ class Bridge:
         volume_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Volume Level (%) ({self.ha_instance_label})",
+            "name": f"Volume Level ({self.ha_instance_label})",
             "unique_id": self.ha_core_entity_ids["volume"],
             "state_topic": f"{self.mqtt_prefix}/cec/audio/volume",
+            "value_template": "{{ (value | float(0) / 100) | round(3) }}",
             "availability": availability,
             "availability_mode": "all",
             "payload_available": "online",
             "payload_not_available": "offline",
-            "unit_of_measurement": "%",
             "icon": "mdi:volume-high",
         }
     
