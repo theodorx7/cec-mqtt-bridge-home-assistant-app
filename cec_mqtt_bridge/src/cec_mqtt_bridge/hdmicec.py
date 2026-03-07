@@ -348,7 +348,7 @@ class HdmiCec:
     
             # 2) Correction passes: compute diff -> send ALL steps (with delay) -> verify -> repeat if needed
             max_passes = 5
-            step_delay = 0.1
+            step_delay = 0.0
             settle_delay = 0.5
     
             for _pass in range(max_passes):
