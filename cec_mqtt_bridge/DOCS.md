@@ -37,7 +37,9 @@ If you do not specify a port in the settings, the application will launch the li
 > If you have more than one CEC adapter connected, you may need to set the port explicitly to avoid picking the wrong one.
 
 ## ⚠️ Volume correction
-Different AVR brands use different volume scales. It’s important to set the maximum volume value for your AVR in the settings; otherwise, volume control via `/cec/audio/volume/set` will not work correctly.
+Different AVR brands use different volume scales. Set the maximum value of your AVR’s native volume scale in the add-on settings. This allows the add-on to correctly convert it to the normalized 0–100% volume scale.
+
+MQTT topics `/cec/audio/volume` and `/cec/audio/volume/set` always use the normalized 0–100% range.
 
 ## MQTT Topics
 
