@@ -366,13 +366,14 @@ class HdmiCec:
                     _pass + 1, max_passes, current, requested_native, diff, steps
                 )
     
-                # Send EXACTLY `steps` hold-style commands in a single pass
-                action = self.cec_client.VolumeUp if step_up else self.cec_client.VolumeDown
-                
-                for i in range(steps):
+                # Send EXACTLY `steps` clicks in a single pass, with a real delay between clicks
+                for _ in range(steps):
                     if cancelled():
                         return
-                    action(i == steps - 1)
+                    if step_up:
+                        self.cec_client.VolumeUp()
+                    else:
+                        self.cec_client.VolumeDown()
                     time.sleep(step_delay)
     
                 # Let AVR catch up before querying status
@@ -387,7 +388,8 @@ class HdmiCec:
     
                 if current is None:
                     # Fallback to cached value if 0x7A didn't arrive
-                    _, current = self.decode_volume(self.cec_client.AudioStatus())
+                    _, current_percent = self.decode_volume(self.cec_client.AudioStatus())
+                    current = self._percent_to_native(current_percent)
     
             LOGGER.warning(
                 'Volume set did not converge after %d passes (last=%d target=%d)',
