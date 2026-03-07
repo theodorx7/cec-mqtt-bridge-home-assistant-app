@@ -31,11 +31,6 @@ configuration:
     description: >-
        Enable automatic creation/removal of Home Assistant sensor entities via MQTT Discovery
 
-  cec_id:
-    name: CEC logical address (ID)
-    description: >-
-       Logical address for the CEC adapter on the HDMI-CEC bus (0-15).
-
   cec_port:
     name: CEC adapter port
     description: >-
