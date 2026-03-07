@@ -47,10 +47,15 @@ class Bridge:
         }
 
         def mqtt_on_message(client: mqtt.Client, userdata, message):
-            """Run mqtt callback in a seperate thread."""
+            """Run mqtt callback in a separate thread."""
+            def _runner():
+                try:
+                    self.mqtt_on_message(client, userdata, message)
+                except Exception:
+                    LOGGER.exception("Failed to process MQTT message: topic=%s payload=%s", message.topic, message.payload)
+        
             thread = threading.Thread(
-                target=self.mqtt_on_message,
-                args=(client, userdata, message),
+                target=_runner,
                 daemon=True,
             )
             thread.start()
@@ -311,7 +316,12 @@ class Bridge:
             ValueError: _description_
         """
         # Decode topic and split off the prefix
-        topic = message.topic.replace(self.mqtt_prefix, '').split('/')[1:]
+        prefix = f"{self.mqtt_prefix}/"
+        if not message.topic.startswith(prefix):
+            LOGGER.warning("Unexpected MQTT topic: %s", message.topic)
+            return
+        
+        topic = message.topic[len(prefix):].split('/')
         action = message.payload.decode()
         LOGGER.debug("Command received: %s (%s)", topic, message.payload)
         
