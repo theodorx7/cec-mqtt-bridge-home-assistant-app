@@ -33,15 +33,18 @@ class Bridge:
         self.ha_device_id = "cec_mqtt_bridge"
         self.mqtt_prefix = self.config["mqtt_prefix"]
         instance = "".join(ch if (ch.isalnum() or ch in "_-") else "_" for ch in self.mqtt_prefix)
-        self.ha_rx_id = f"cec_last_received_{instance}"
-        self.ha_tx_id = f"cec_last_sent_{instance}"
-        self.ha_cec_status_id = f"cec_bus_status_{instance}"
         self.ha_instance_label = instance
-        self.ha_rx_discovery_topic = f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_rx_id}/config"
-        self.ha_tx_discovery_topic = f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_tx_id}/config"
-        self.ha_cec_status_discovery_topic = (
-            f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_cec_status_id}/config"
-        )
+        
+        self.ha_optional_entity_ids = {
+            "rx": f"cec_last_received_{instance}",
+            "tx": f"cec_last_sent_{instance}",
+        }
+        
+        self.ha_core_entity_ids = {
+            "cec_status": f"cec_bus_status_{instance}",
+            "volume": f"cec_volume_{instance}",
+            "volume_native": f"cec_volume_native_{instance}",
+        }
 
         def mqtt_on_message(client: mqtt.Client, userdata, message):
             """Run mqtt callback in a seperate thread."""
@@ -126,9 +129,9 @@ class Bridge:
 
         # Publish birth message
         self.mqtt_publish('bridge/status', 'online', qos=1, retain=True)
-        # HA MQTT Device Discovery toggle
-        self._ha_publish_cec_status_discovery()
-
+        
+        self._ha_publish_core_device_discovery()
+        
         if self.ha_discovery_enabled:
             self._ha_publish_optional_device_discovery()
         else:
@@ -153,7 +156,10 @@ class Bridge:
             retain=retain,
         )
 
-    def _ha_publish_cec_status_discovery(self) -> None:
+    def _ha_sensor_discovery_topic(self, entity_id: str) -> str:
+        return f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{entity_id}/config"
+    
+    def _ha_publish_core_device_discovery(self) -> None:
         device_ctx = {
             "identifiers": [self.ha_device_id],
             "name": "HDMI-CEC MQTT Bridge",
@@ -162,12 +168,16 @@ class Bridge:
             "name": HA_ORIGIN_NAME,
             "support_url": HA_SUPPORT_URL,
         }
-
+        availability = [
+            {"topic": f"{self.mqtt_prefix}/bridge/status"},
+            {"topic": f"{self.mqtt_prefix}/cec/status"},
+        ]
+    
         cec_status_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
             "name": f"CEC Bus Status ({self.ha_instance_label})",
-            "unique_id": self.ha_cec_status_id,
+            "unique_id": self.ha_core_entity_ids["cec_status"],
             "state_topic": f"{self.mqtt_prefix}/cec/status",
             "availability_topic": f"{self.mqtt_prefix}/bridge/status",
             "payload_available": "online",
@@ -176,10 +186,49 @@ class Bridge:
             "options": ["online", "offline"],
             "icon": "mdi:hdmi-port",
         }
-
+    
+        volume_payload = {
+            "device": device_ctx,
+            "origin": origin_ctx,
+            "name": f"AVR Volume ({self.ha_instance_label})",
+            "unique_id": self.ha_core_entity_ids["volume"],
+            "state_topic": f"{self.mqtt_prefix}/cec/audio/volume",
+            "availability": availability,
+            "availability_mode": "all",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "unit_of_measurement": "%",
+            "icon": "mdi:volume-high",
+        }
+    
+        volume_native_payload = {
+            "device": device_ctx,
+            "origin": origin_ctx,
+            "name": f"AVR Native Volume ({self.ha_instance_label})",
+            "unique_id": self.ha_core_entity_ids["volume_native"],
+            "state_topic": f"{self.mqtt_prefix}/cec/audio/volume_native",
+            "availability": availability,
+            "availability_mode": "all",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "icon": "mdi:volume-high",
+        }
+    
         self.mqtt_client.publish(
-            self.ha_cec_status_discovery_topic,
+            self._ha_sensor_discovery_topic(self.ha_core_entity_ids["cec_status"]),
             json.dumps(cec_status_payload),
+            qos=1,
+            retain=True,
+        )
+        self.mqtt_client.publish(
+            self._ha_sensor_discovery_topic(self.ha_core_entity_ids["volume"]),
+            json.dumps(volume_payload),
+            qos=1,
+            retain=True,
+        )
+        self.mqtt_client.publish(
+            self._ha_sensor_discovery_topic(self.ha_core_entity_ids["volume_native"]),
+            json.dumps(volume_native_payload),
             qos=1,
             retain=True,
         )
@@ -197,12 +246,12 @@ class Bridge:
             {"topic": f"{self.mqtt_prefix}/bridge/status"},
             {"topic": f"{self.mqtt_prefix}/cec/status"},
         ]
-
+    
         rx_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
             "name": f"Last Received CEC ({self.ha_instance_label})",
-            "unique_id": self.ha_rx_id,
+            "unique_id": self.ha_optional_entity_ids["rx"],
             "state_topic": f"{self.mqtt_prefix}/cec/rx",
             "availability": availability,
             "availability_mode": "all",
@@ -214,7 +263,7 @@ class Bridge:
             "device": device_ctx,
             "origin": origin_ctx,
             "name": f"Last Sent CEC ({self.ha_instance_label})",
-            "unique_id": self.ha_tx_id,
+            "unique_id": self.ha_optional_entity_ids["tx"],
             "state_topic": f"{self.mqtt_prefix}/cec/tx",
             "availability": availability,
             "availability_mode": "all",
@@ -222,19 +271,29 @@ class Bridge:
             "payload_not_available": "offline",
             "icon": "mdi:chevron-double-up",
         }
-
-        self.mqtt_client.publish(self.ha_rx_discovery_topic, json.dumps(rx_payload), qos=1, retain=True)
-        self.mqtt_client.publish(self.ha_tx_discovery_topic, json.dumps(tx_payload), qos=1, retain=True)
     
+        self.mqtt_client.publish(
+            self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["rx"]),
+            json.dumps(rx_payload),
+            qos=1,
+            retain=True,
+        )
+        self.mqtt_client.publish(
+            self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["tx"]),
+            json.dumps(tx_payload),
+            qos=1,
+            retain=True,
+        )
+
     def _ha_clear_optional_device_discovery(self, *, wait: bool = False) -> None:
         infos = (
-            self.mqtt_client.publish(self.ha_rx_discovery_topic, payload="", qos=1, retain=True),
-            self.mqtt_client.publish(self.ha_tx_discovery_topic, payload="", qos=1, retain=True),
+            self.mqtt_client.publish(self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["rx"]), payload="", qos=1, retain=True),
+            self.mqtt_client.publish(self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["tx"]), payload="", qos=1, retain=True),
         )
         if wait:
             for info in infos:
                 info.wait_for_publish(timeout=2)
-        
+    
     def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
         """Process message on subscibed MQTT topic
 
