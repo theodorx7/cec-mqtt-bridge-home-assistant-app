@@ -39,11 +39,12 @@ class Bridge:
             "rx": f"cec_last_received_{instance}",
             "tx": f"cec_last_sent_{instance}",
         }
-        
         self.ha_core_entity_ids = {
             "cec_status": f"cec_bus_status_{instance}",
             "volume": f"cec_volume_{instance}",
+            "volume_normalized": f"cec_volume_normalized_{instance}",
             "volume_native": f"cec_volume_native_{instance}",
+            "mute": f"cec_mute_{instance}",
         }
 
         def mqtt_on_message(client: mqtt.Client, userdata, message):
@@ -177,7 +178,6 @@ class Bridge:
             {"topic": f"{self.mqtt_prefix}/bridge/status"},
             {"topic": f"{self.mqtt_prefix}/cec/status"},
         ]
-    
         cec_status_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
@@ -191,16 +191,12 @@ class Bridge:
             "options": ["online", "offline"],
             "icon": "mdi:hdmi-port",
         }
-    
         volume_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
             "name": f"Volume Level 0-100% ({self.ha_instance_label})",
             "unique_id": self.ha_core_entity_ids["volume"],
             "state_topic": f"{self.mqtt_prefix}/cec/audio/volume",
-            "value_template": "{{ value_json.percent }}",
-            "json_attributes_topic": f"{self.mqtt_prefix}/cec/audio/volume",
-            "json_attributes_template": "{{ {'level': value_json.level} | tojson }}",
             "availability": availability,
             "availability_mode": "all",
             "payload_available": "online",
@@ -208,11 +204,22 @@ class Bridge:
             "unit_of_measurement": "%",
             "icon": "mdi:volume-high",
         }
-    
+        volume_normalized_payload = {
+            "device": device_ctx,
+            "origin": origin_ctx,
+            "name": f"Normalized Volume 0.0-1.0 ({self.ha_instance_label})",
+            "unique_id": self.ha_core_entity_ids["volume_normalized"],
+            "state_topic": f"{self.mqtt_prefix}/cec/audio/volume_normalized",
+            "availability": availability,
+            "availability_mode": "all",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "icon": "mdi:volume-medium",
+        }
         volume_native_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Volume Level 0-{int(self.config.get('volume_correction', 100))} ({self.ha_instance_label})",
+            "name": f"Volume Level 0-{int(self.config.get('volume_correction') or 100)} ({self.ha_instance_label})",
             "unique_id": self.ha_core_entity_ids["volume_native"],
             "state_topic": f"{self.mqtt_prefix}/cec/audio/volume_native",
             "availability": availability,
@@ -221,7 +228,23 @@ class Bridge:
             "payload_not_available": "offline",
             "icon": "mdi:volume-source",
         }
-    
+        mute_payload = {
+            "device": device_ctx,
+            "origin": origin_ctx,
+            "name": f"Mute ({self.ha_instance_label})",
+            "unique_id": self.ha_core_entity_ids["mute"],
+            "state_topic": f"{self.mqtt_prefix}/cec/audio/mute",
+            "command_topic": f"{self.mqtt_prefix}/cec/audio/mute/set",
+            "availability": availability,
+            "availability_mode": "all",
+            "payload_available": "online",
+            "payload_not_available": "offline",
+            "payload_on": "on",
+            "payload_off": "off",
+            "state_on": "on",
+            "state_off": "off",
+            "icon": "mdi:volume-mute",
+        }
         self.mqtt_client.publish(
             self._ha_sensor_discovery_topic(self.ha_core_entity_ids["cec_status"]),
             json.dumps(cec_status_payload),
@@ -235,8 +258,20 @@ class Bridge:
             retain=True,
         )
         self.mqtt_client.publish(
+            self._ha_sensor_discovery_topic(self.ha_core_entity_ids["volume_normalized"]),
+            json.dumps(volume_normalized_payload),
+            qos=1,
+            retain=True,
+        )
+        self.mqtt_client.publish(
             self._ha_sensor_discovery_topic(self.ha_core_entity_ids["volume_native"]),
             json.dumps(volume_native_payload),
+            qos=1,
+            retain=True,
+        )
+        self.mqtt_client.publish(
+            f"{HA_DISCOVERY_PREFIX_DEFAULT}/switch/{self.ha_core_entity_ids['mute']}/config",
+            json.dumps(mute_payload),
             qos=1,
             retain=True,
         )
