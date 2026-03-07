@@ -59,6 +59,6 @@ configuration:
   volume_correction:
     name: Volume correction
     description: >-
-       Specify the maximum value of your AVR’s volume scale.
+       Specify the maximum value of your AVR’s native volume scale so volume control works correctly on the 0–100% scale.
     
 
