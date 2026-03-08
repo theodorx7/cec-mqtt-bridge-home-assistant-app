@@ -140,7 +140,6 @@ class Bridge:
         
         if self.ha_discovery_enabled:
             self._ha_publish_optional_device_discovery()
-            self.mqtt_publish('cec/tx', 'unknown', qos=1, retain=True)
         else:
             self._ha_clear_optional_device_discovery()
         
@@ -393,9 +392,6 @@ class Bridge:
                         raise ValueError(f"Unknown volume command: {topic} {action}")
 
             elif topic[1] == 'tx':
-                if message.retain and action == 'unknown':
-                    return
-
                 for command in action.split(','):
                     if command.strip():
                         self.cec_class.tx_command(command.strip())
