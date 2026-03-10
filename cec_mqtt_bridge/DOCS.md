@@ -146,6 +146,3 @@ data:
 | `prefix`/cec/audio/mute              | `on` / `off`                      | Report mute status of the audio system.          |
 | `prefix`/cec/rx                      | `raw CEC command string`          | Notify that a raw CEC command string was received.              |
 
-
-### Note
-This project is based on `bridge.py` and `hdmicec.py` from [`michaelarnauts`](https://github.com/michaelarnauts/cec-mqtt-bridge) / [`ballle98`](https://github.com/ballle98/cec-mqtt-bridge), while evolving into an independent solution tailored specifically for Home Assistant.
