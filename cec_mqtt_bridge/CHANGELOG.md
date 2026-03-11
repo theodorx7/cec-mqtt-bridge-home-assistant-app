@@ -10,7 +10,7 @@ This project is based on `bridge.py` and `hdmicec.py` from [`michaelarnauts`](ht
 - Home Assistant entities use `cec/status` as the availability indicator;
 - The `volume_correction` parameter has been exposed in the app settings and allows configuring the AVR’s native volume scale for correct operation of the `volume_set` command.
 - Added two additional MQTT audio topics for volume: `cec/audio/volume_native` and `cec/audio/volume_normalized`, allowing the use of the native AVR scale and a normalized `0-1` value alongside the standard `0-100` level.
-- Added suppression logic for power and mute so that the bridge’s own commands do not cause unnecessary reverse state flips immediately after being sent.
+- Added the logic for suppressing the publication of outdated power/mute states.
 - Added proper handling of an unknown volume level: if the AVR returns `0x7F`, the app publishes the state as `unknown` instead of an incorrect volume value.
 
 ### Changed
