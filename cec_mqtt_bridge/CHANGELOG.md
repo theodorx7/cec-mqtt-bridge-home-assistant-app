@@ -1,8 +1,4 @@
 ## 1.0.1
-- Improved the logic for suppressing the publication of outdated power/mute states.
-- Updated the project documentation: added a universal Home Assistant media player entity template.
-
-## 1.0.0
 This project is based on `bridge.py` and `hdmicec.py` from [`michaelarnauts`](https://github.com/michaelarnauts/cec-mqtt-bridge) and [`ballle98`](https://github.com/ballle98/cec-mqtt-bridge). Since the goal was to create a solution tailored specifically to Home Assistant, the logic of the original `cec-mqtt-bridge` had to be significantly reworked.
 
 ### Added
