@@ -11,8 +11,8 @@ Connect your AV devices to your home automation system.
 ## Features
  - Home Assistant entities for control power, volume and mute (complete set for a media player entity)
  - Power, volume (specific/up/down), and mute/unmute control and state feedback via MQTT
- - Send any custom raw HDMI-CEC commands directly to the CEC bus
- - Receive raw HDMI-CEC messages from the CEC bus via MQTT
+ - Receive all raw HDMI-CEC codes from the CEC bus and use them as triggers in automations.
+ - Send any custom raw HDMI-CEC commands directly to the CEC bus via MQTT
 
 ## Supported hardware
 ### Raspberry Pi 3 / 4 / 5
