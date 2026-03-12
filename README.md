@@ -10,8 +10,7 @@ Connect your AV devices to your home automation system.
 
 ## Features
  - Home Assistant entities for control power, volume and mute (complete set for a media player entity)
- - Control of power, volume (specific/up/down) and mute/unmute
- - State feedback for power, volume and mute
+ - Power, volume (specific/up/down), and mute/unmute control and state feedback via MQTT
  - Send any custom raw HDMI-CEC commands directly to the CEC bus
  - Receive raw HDMI-CEC messages from the CEC bus via MQTT
 
