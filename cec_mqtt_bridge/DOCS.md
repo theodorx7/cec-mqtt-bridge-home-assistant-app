@@ -35,6 +35,8 @@ Different AVR brands use different volume scales. Set the maximum value of your 
 
 MQTT topics `/cec/audio/volume` and `/cec/audio/volume/set` always use the normalized 0–100% range.
 
+> If there is no AVR or any other device of type “Audio” on your CEC bus (device `laddr` 5), volume control is very likely not to work.
+
 ## Home Assistant entities
 - Power switches for supported TV/AVR devices (`laddr` 0 and 5)
 - Volume numbers (0-100%, native, normalized)
