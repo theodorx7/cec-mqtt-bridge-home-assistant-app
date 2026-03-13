@@ -117,9 +117,9 @@ data:
   payload: "up"
 ```
 
-Request the AVR power status.
+Request the AVR power status - RAW command.
 <br>
-`15:8F` means initiator = 1, recipient = 5 (Recording Device 1 → Audio System 5), `8F` = cec-command:
+`15:8F` means initiator = 1, recipient = 5 (Recorder: CEC-adapter 1 → Audio System 5), `8F` = cec-command:
 ```
 action: mqtt.publish
 data:
