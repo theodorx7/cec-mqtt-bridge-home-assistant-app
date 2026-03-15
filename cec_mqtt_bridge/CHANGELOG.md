@@ -1,5 +1,5 @@
 ## 1.0.1
-This project is based on `bridge.py` and `hdmicec.py` from [`michaelarnauts`](https://github.com/michaelarnauts/cec-mqtt-bridge) and [`ballle98`](https://github.com/ballle98/cec-mqtt-bridge). Since the goal was to create a solution tailored specifically to Home Assistant, the logic of the original `cec-mqtt-bridge` had to be significantly reworked.
+This project is based on `bridge.py` and `hdmicec.py` from [`michaelarnauts`](https://github.com/michaelarnauts/cec-mqtt-bridge) → [`ballle98`](https://github.com/ballle98/cec-mqtt-bridge). Since the goal was to create a solution tailored specifically to Home Assistant, the logic of the original `cec-mqtt-bridge` had to be significantly reworked.
 
 ### Added
 - Full packaging of the project as a Home Assistant app.
