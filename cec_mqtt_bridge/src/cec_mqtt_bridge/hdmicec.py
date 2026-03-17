@@ -228,13 +228,15 @@ class HdmiCec:
                     self.cec_client.PowerStatusToString(power),
                     suppress=True,
                 )
-            else:
+                return 0
+    
+            if opcode == cec.CEC_OPCODE_REPORT_AUDIO_STATUS:
                 self._publish_audio_status(
                     int(cmd[9:], 16),
                     notify=True,
                     suppress_mute=True,
                 )
-            return 0
+                return 0
     
         if opcode == cec.CEC_OPCODE_DEVICE_VENDOR_ID:
             vendor_id = int((cmd[9:]).replace(':', ''), base=16)
