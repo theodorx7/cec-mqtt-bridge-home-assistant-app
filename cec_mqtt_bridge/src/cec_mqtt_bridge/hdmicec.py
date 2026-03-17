@@ -188,39 +188,61 @@ class HdmiCec:
         return 0
 
     def _on_command_callback(self, cmd):
-        if self.refreshing or self.scanning:
-            LOGGER.debug(
-                'Skipping _on_command_callback: %s in progress',
-                'scan' if self.scanning else 'refresh',
-            )
-            return 0
-    
         self._set_cec_connected(True)
+    
         initiator = int(cmd[3:4], 16)
         destination = int(cmd[4:5], 16)
         opcode = int(cmd[6:8], 16)
     
-        LOGGER.debug('_on_command_callback %02x %s %x -> %x %s',
-                     opcode, self.cec_client.OpcodeToString(opcode), initiator,
-                     destination, cmd)
-        
+        LOGGER.debug(
+            '_on_command_callback %02x %s %x -> %x %s',
+            opcode,
+            self.cec_client.OpcodeToString(opcode),
+            initiator,
+            destination,
+            cmd,
+        )
+    
         # Send raw command to mqtt
         self._mqtt_send('cec/rx', cmd[3:])
-
-        if opcode == cec.CEC_OPCODE_REPORT_POWER_STATUS:
-            power = int(cmd[9:], 16)
-            self._publish_power(
-                initiator,
-                self.cec_client.PowerStatusToString(power),
-                suppress=True,
-            )
-        elif opcode == cec.CEC_OPCODE_DEVICE_VENDOR_ID:
+    
+        if self.scanning:
+            LOGGER.debug('Skipping _on_command_callback handling: scan in progress')
+            return 0
+    
+        if opcode in (
+            cec.CEC_OPCODE_REPORT_POWER_STATUS,
+            cec.CEC_OPCODE_REPORT_AUDIO_STATUS,
+        ):
+            if self.refreshing:
+                LOGGER.debug(
+                    'Skipping %s handling in _on_command_callback: refresh in progress',
+                    self.cec_client.OpcodeToString(opcode),
+                )
+                return 0
+    
+            if opcode == cec.CEC_OPCODE_REPORT_POWER_STATUS:
+                power = int(cmd[9:], 16)
+                self._publish_power(
+                    initiator,
+                    self.cec_client.PowerStatusToString(power),
+                    suppress=True,
+                )
+            else:
+                self._publish_audio_status(
+                    int(cmd[9:], 16),
+                    notify=True,
+                    suppress_mute=True,
+                )
+            return 0
+    
+        if opcode == cec.CEC_OPCODE_DEVICE_VENDOR_ID:
             vendor_id = int((cmd[9:]).replace(':', ''), base=16)
             self._mqtt_send(
                 f'cec/device/{initiator}/vendor',
                 self.cec_client.VendorIdToString(vendor_id)
             )
-            
+    
             # Some AVRs may announce wake-up on logical address 3,
             # while the actual power status is tracked on 5 (Audio System).
             if initiator == 3 and 5 in self.devices:
@@ -231,21 +253,24 @@ class HdmiCec:
             elif initiator in self.devices:
                 LOGGER.debug(
                     'Device %d announced vendor id; requesting power status',
-                    initiator
+                    initiator,
                 )
                 self.tx_command('8F', initiator)
-        elif opcode == cec.CEC_OPCODE_REPORT_PHYSICAL_ADDRESS:
+            return 0
+    
+        if opcode == cec.CEC_OPCODE_REPORT_PHYSICAL_ADDRESS:
             physical_address = int(cmd[9:14].replace(':', ''), 16)
             self._mqtt_send(f'cec/device/{initiator}/address', f'{physical_address:04x}')
-        elif opcode == cec.CEC_OPCODE_REPORT_AUDIO_STATUS:
-            self._publish_audio_status(int(cmd[9:], 16), notify=True, suppress_mute=True)
-        elif opcode == cec.CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:
+            return 0
+    
+        if opcode == cec.CEC_OPCODE_SET_SYSTEM_AUDIO_MODE:
             self._publish_power(
                 5,
                 'on' if int(cmd[9:], 16) == 1 else 'off',
                 suppress=True,
             )
-
+            return 0
+    
         return 0
 
     def power_on(self, device: int):
