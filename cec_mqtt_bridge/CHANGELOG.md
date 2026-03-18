@@ -1,3 +1,9 @@
+## 1.0.5
+- Optimization and refactoring: reduced redundant requests and unnecessary logical operations
+- Improved stability
+- Improved device power state update speed and anti-bounce logic
+- Fixed an issue where incoming codes from the CEC bus might not be delivered to `prefix/cec/rx` and `sensor.hdmi_cec_mqtt_bridge_last_received_cec_cec_mqtt`
+
 ## 1.0.1
 This project is based on `bridge.py` and `hdmicec.py` from [`michaelarnauts`](https://github.com/michaelarnauts/cec-mqtt-bridge) → [`ballle98`](https://github.com/ballle98/cec-mqtt-bridge). Since the goal was to create a solution tailored specifically to Home Assistant, the logic of the original `cec-mqtt-bridge` had to be significantly reworked.
 
