@@ -15,10 +15,6 @@ HA_DISCOVERY_PREFIX_DEFAULT = "homeassistant"
 HA_ORIGIN_NAME = "cec-mqtt-bridge"
 HA_SUPPORT_URL = "https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app"
 
-def load_config_from_ha() -> dict:
-    with open("/data/options.json") as f:
-        return json.load(f)
-
 class Bridge:
     """Main bridge class"""
 
@@ -45,14 +41,9 @@ class Bridge:
 
         def mqtt_on_message(client: mqtt.Client, userdata, message):
             """Run mqtt callback in a separate thread."""
-            def _runner():
-                try:
-                    self.mqtt_on_message(client, userdata, message)
-                except Exception:
-                    LOGGER.exception("Failed to process MQTT message: topic=%s payload=%s", message.topic, message.payload)
-        
             thread = threading.Thread(
-                target=_runner,
+                target=self.mqtt_on_message,
+                args=(client, userdata, message),
                 daemon=True,
             )
             thread.start()
@@ -99,8 +90,7 @@ class Bridge:
             name=self.config['cec_name'],
             devices=[int(x) for x in self.config["cec_devices"].replace(",", " ").split()],
             mqtt_send=self.mqtt_publish,
-            volume_correction=self.config.get("volume_correction"),
-        )
+            volume_correction=self.config.get("volume_correction"))
 
         self.mqtt_client.loop_start()
 
@@ -129,12 +119,11 @@ class Bridge:
         else:
             self._ha_clear_optional_device_discovery()
         
-        self.cec_class.publish_status()
+        threading.Thread(
+            target=lambda: (self.scan(), self.cec_class.publish_status()),
+            daemon=True,
+        ).start()
         
-        # Power switches не являются optional-сущностями.
-        # Всегда перепроверяем их по актуальному CEC состоянию.
-        self._ha_refresh_power_switch_discovery()
-
     def mqtt_publish(self, topic, message=None, qos=0, retain=True):
         """Publish an MQTT message under the configured bridge prefix"""
         LOGGER.debug('Send to topic %s: %s', topic, message)
@@ -145,8 +134,92 @@ class Bridge:
             retain=retain,
         )
 
-    def _ha_sensor_discovery_topic(self, entity_id: str) -> str:
-        return f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{entity_id}/config"
+    def scan(self):
+        """Scan HDMI-CEC devices and publish topics."""
+        if self.cec_class.scanning:
+            LOGGER.debug("Skipping scan: scan in progress")
+            return
+
+        self.cec_class.scanning = True
+        try:
+            if self.cec_class.refreshing:
+                LOGGER.debug("Waiting for refresh to finish before scan")
+            while self.cec_class.refreshing:
+                time.sleep(0.1)
+
+            LOGGER.debug("requesting CEC bus information ...")
+            
+            for device in self.cec_class.devices:
+                physical_address = self.cec_class.cec_client.GetDevicePhysicalAddress(device)
+                if physical_address == 0xFFFF:
+                    continue
+
+                vendor_id = self.cec_class.cec_client.GetDeviceVendorId(device)
+                active = self.cec_class.cec_client.IsActiveSource(device)
+                cec_version = self.cec_class.cec_client.GetDeviceCecVersion(device)
+                power = self.cec_class.cec_client.GetDevicePowerStatus(device)
+                osd_name = self.cec_class.cec_client.GetDeviceOSDName(device)
+
+                vendor = self.cec_class.cec_client.VendorIdToString(vendor_id)
+                power_str = self.cec_class.cec_client.PowerStatusToString(power)
+
+                self.mqtt_publish(f'cec/device/{device}/type', self.cec_class.cec_client.LogicalAddressToString(device))
+                self.mqtt_publish(f'cec/device/{device}/address', f'{physical_address:04x}')
+                self.mqtt_publish(f'cec/device/{device}/active', str(active))
+                self.mqtt_publish(f'cec/device/{device}/vendor', vendor)
+                self.mqtt_publish(f'cec/device/{device}/osd', osd_name)
+                self.mqtt_publish(f'cec/device/{device}/cecver', self.cec_class.cec_client.CecVersionToString(cec_version))
+                power_state = hdmicec.HA_POWER_MAP.get(power_str, power_str)
+                self.mqtt_publish(f'cec/device/{device}/power', power_state)
+
+                vendor_clean = (vendor or "").strip()
+                osd_clean = (osd_name or "").strip()
+
+                if (
+                    device in self.ha_power_switch_devices
+                    and vendor_clean
+                    and vendor_clean.lower() != "unknown"
+                    and osd_clean
+                    and osd_clean.lower() != "unknown"
+                    and power_state in ("on", "off")
+                ):
+                    entity_id = f"cec_device_{device}_power_{self.ha_instance_label}"
+                    payload = {
+                        "device": {
+                            "identifiers": [self.ha_device_id],
+                            "name": "HDMI-CEC MQTT Bridge",
+                        },
+                        "origin": {
+                            "name": HA_ORIGIN_NAME,
+                            "support_url": HA_SUPPORT_URL,
+                        },
+                        "name": f"{vendor_clean} {osd_clean}",
+                        "unique_id": entity_id,
+                        "state_topic": f"{self.mqtt_prefix}/cec/device/{device}/power",
+                        "command_topic": f"{self.mqtt_prefix}/cec/device/{device}/power/set",
+                        "availability": [
+                            {"topic": f"{self.mqtt_prefix}/cec/status"},
+                        ],
+                        "payload_available": "online",
+                        "payload_not_available": "offline",
+                        "payload_on": "on",
+                        "payload_off": "off",
+                        "state_on": "on",
+                        "state_off": "off",
+                        "icon": "mdi:power",
+                    }
+
+                    self.mqtt_client.publish(
+                        f"{HA_DISCOVERY_PREFIX_DEFAULT}/switch/{entity_id}/config",
+                        json.dumps(payload),
+                        qos=1,
+                        retain=True,
+                    )
+
+            self.cec_class._publish_audio_status(self.cec_class.cec_client.AudioStatus())
+        finally:
+            self.cec_class._scan_cooldown_until = time.monotonic() + 10.0
+            self.cec_class.scanning = False
     
     def _ha_publish_core_device_discovery(self) -> None:
         device_ctx = {
@@ -238,7 +311,7 @@ class Bridge:
             "icon": "mdi:volume-mute",
         }
         self.mqtt_client.publish(
-            self._ha_sensor_discovery_topic(self.ha_core_entity_ids["cec_status"]),
+            f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_core_entity_ids['cec_status']}/config",
             json.dumps(cec_status_payload),
             qos=1,
             retain=True,
@@ -265,21 +338,16 @@ class Bridge:
             f"{HA_DISCOVERY_PREFIX_DEFAULT}/switch/{self.ha_core_entity_ids['mute']}/config",
             json.dumps(mute_payload),
             qos=1,
-            retain=True,
-        )
-    
+            retain=True)
+
     def _ha_publish_optional_device_discovery(self) -> None:
         device_ctx = {
-            "identifiers": [self.ha_device_id],
-            "name": "HDMI-CEC MQTT Bridge",
-        }
+            "identifiers": [self.ha_device_id], "name": "HDMI-CEC MQTT Bridge"}
         origin_ctx = {
             "name": HA_ORIGIN_NAME,
-            "support_url": HA_SUPPORT_URL,
-        }
+            "support_url": HA_SUPPORT_URL}
         availability = [
-            {"topic": f"{self.mqtt_prefix}/cec/status"},
-        ]
+            {"topic": f"{self.mqtt_prefix}/cec/status"}]
     
         rx_payload = {
             "device": device_ctx,
@@ -305,161 +373,117 @@ class Bridge:
         }
     
         self.mqtt_client.publish(
-            self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["rx"]),
+            f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_optional_entity_ids['rx']}/config",
             json.dumps(rx_payload),
             qos=1,
             retain=True,
         )
         self.mqtt_client.publish(
-            self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["tx"]),
+            f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_optional_entity_ids['tx']}/config",
             json.dumps(tx_payload),
             qos=1,
-            retain=True,
-        )
+            retain=True)
 
     def _ha_clear_optional_device_discovery(self, *, wait: bool = False) -> None:
         infos = (
-            self.mqtt_client.publish(self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["rx"]), payload="", qos=1, retain=True),
-            self.mqtt_client.publish(self._ha_sensor_discovery_topic(self.ha_optional_entity_ids["tx"]), payload="", qos=1, retain=True),
+            self.mqtt_client.publish(
+                f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_optional_entity_ids['rx']}/config", payload="", qos=1, retain=True),
+            self.mqtt_client.publish(
+                f"{HA_DISCOVERY_PREFIX_DEFAULT}/sensor/{self.ha_optional_entity_ids['tx']}/config", payload="", qos=1, retain=True),
         )
         if wait:
             for info in infos:
                 info.wait_for_publish(timeout=2)
     
-    def _ha_publish_power_switch_discovery(self, device: int) -> None:
-        entity_id = f"cec_device_{device}_power_{self.ha_instance_label}"
-
-        if device not in self.cec_class.devices:
-            return
-
-        vendor = self.cec_class.cec_client.VendorIdToString(
-            self.cec_class.cec_client.GetDeviceVendorId(device)
-        )
-        osd = self.cec_class.cec_client.GetDeviceOSDName(device)
-        power = self.cec_class.cec_client.PowerStatusToString(
-            self.cec_class.cec_client.GetDevicePowerStatus(device)
-        )
-
-        vendor = (vendor or "").strip()
-        osd = (osd or "").strip()
-        power = hdmicec.HA_POWER_MAP.get(power, power)
-
-        if not vendor or vendor.lower() == "unknown":
-            return
-
-        if not osd or osd.lower() == "unknown":
-            return
-
-        if power not in ("on", "off"):
-            return
-
-        payload = {
-            "device": {
-                "identifiers": [self.ha_device_id],
-                "name": "HDMI-CEC MQTT Bridge",
-            },
-            "origin": {
-                "name": HA_ORIGIN_NAME,
-                "support_url": HA_SUPPORT_URL,
-            },
-            "name": f"{vendor} {osd}",
-            "unique_id": entity_id,
-            "state_topic": f"{self.mqtt_prefix}/cec/device/{device}/power",
-            "command_topic": f"{self.mqtt_prefix}/cec/device/{device}/power/set",
-            "availability": [
-                {"topic": f"{self.mqtt_prefix}/cec/status"},
-            ],
-            "payload_available": "online",
-            "payload_not_available": "offline",
-            "payload_on": "on",
-            "payload_off": "off",
-            "state_on": "on",
-            "state_off": "off",
-            "icon": "mdi:power",
-        }
-
-        self.mqtt_client.publish(
-            f"{HA_DISCOVERY_PREFIX_DEFAULT}/switch/{entity_id}/config",
-            json.dumps(payload),
-            qos=1,
-            retain=True,
-        )
-
-    def _ha_refresh_power_switch_discovery(self) -> None:
-        for device in self.ha_power_switch_devices:
-            self._ha_publish_power_switch_discovery(device)
-    
     def mqtt_on_message(self, _client: mqtt.Client, _userdata, message):
         """Process a message received on a subscribed MQTT topic"""
-        # Decode topic and split off the prefix
-        prefix = f"{self.mqtt_prefix}/"
-        if not message.topic.startswith(prefix):
-            LOGGER.warning("Unexpected MQTT topic: %s", message.topic)
-            return
-        
-        topic = message.topic[len(prefix):].split('/')
-        action = message.payload.decode()
-        LOGGER.debug("Command received: %s (%s)", topic, message.payload)
-        
-        if topic[0] == 'cec':
+        try:
+            prefix = f"{self.mqtt_prefix}/"
+            if not message.topic.startswith(prefix):
+                LOGGER.warning("Unexpected MQTT topic: %s", message.topic)
+                return
+
+            topic = message.topic[len(prefix):].split('/')
+            action = message.payload.decode()
+            LOGGER.debug("Command received: %s (%s)", topic, message.payload)
+
+            if topic[0] != 'cec':
+                return
 
             if topic[1] == 'device':
-                device = int(topic[2])
-                if topic[3] == 'power':
-                    if action == 'on':
-                        self.cec_class.power_on(device)
-                    elif action == 'off':
-                        self.cec_class.power_off(device)
-                    else:
-                        raise ValueError(f"Unknown power command: {topic} {action}")
+                if topic[3] != 'power':
+                    return
 
-            elif topic[1] == 'audio':
+                device = int(topic[2])
+                if action == 'on':
+                    self.cec_class.power_on(device)
+                    return
+                if action == 'off':
+                    self.cec_class.power_off(device)
+                    return
+                raise ValueError(f"Unknown power command: {topic} {action}")
+
+            if topic[1] == 'audio':
                 if topic[2] == 'volume':
                     if action == 'up':
                         self.cec_class.volume_up()
-                    elif action == 'down':
+                        return
+                    if action == 'down':
                         self.cec_class.volume_down()
-                    elif action.isdigit() and int(action) <= 100:
+                        return
+                    if action.isdigit() and int(action) <= 100:
                         self.cec_class.volume_set(int(action))
-                    else:
-                        raise ValueError(f"Unknown volume command: {topic} {action}")
+                        return
+                    raise ValueError(f"Unknown volume command: {topic} {action}")
 
-                elif topic[2] == 'mute':
+                if topic[2] == 'mute':
                     if action == 'on':
                         self.cec_class.volume_mute()
-                    elif action == 'off':
+                        return
+                    if action == 'off':
                         self.cec_class.volume_unmute()
-                    else:
-                        raise ValueError(f"Unknown volume command: {topic} {action}")
+                        return
+                    raise ValueError(f"Unknown volume command: {topic} {action}")
 
-            elif topic[1] == 'tx':
+                return
+
+            if topic[1] == 'tx':
                 for command in action.split(','):
-                    if command.strip():
-                        self.cec_class.tx_command(command.strip())
+                    command = command.strip()
+                    if command:
+                        self.cec_class.tx_command(command)
+                return
 
-            elif topic[1] == 'refresh':
+            if topic[1] == 'refresh':
                 self.cec_class.refresh()
-                self._ha_refresh_power_switch_discovery()
+                return
 
-            elif topic[1] == 'scan':
-                self.cec_class.scan()
-                self._ha_refresh_power_switch_discovery()
+            if topic[1] == 'scan':
+                self.scan()
+                return
+
+        except Exception:
+            LOGGER.exception(
+                "Failed to process MQTT message: topic=%s payload=%s",
+                message.topic,
+                message.payload,
+            )
 
     def cleanup(self):
         """Terminates the connection"""
         cec_info = self.mqtt_publish('cec/status', 'offline', qos=1, retain=True)
         cec_info.wait_for_publish(timeout=2)
-    
+
         if not self.ha_optional_entities_enabled:
             self._ha_clear_optional_device_discovery(wait=True)
-    
+        
         self.mqtt_client.disconnect()
         self.mqtt_client.loop_stop()
 
 
 def main():
     """main for cec_mqtt_bridge"""
-    config = load_config_from_ha()
+    with open("/data/options.json") as f: config = json.load(f)
     log_level = logging.DEBUG if config.get("debug") else logging.INFO
     logging.basicConfig(
         level=log_level,
@@ -483,12 +507,10 @@ def main():
     LOGGER.debug("refresh delay %d", refresh_delay)
 
     try:
-        while not stop_event.is_set():
+        while not stop_event.wait(refresh_delay or 3600):
             # Refresh CEC state
             if refresh_delay:
                 bridge.cec_class.refresh()
-                bridge._ha_refresh_power_switch_discovery()
-            stop_event.wait(refresh_delay or 3600)
     finally:
         bridge.cleanup()
 
