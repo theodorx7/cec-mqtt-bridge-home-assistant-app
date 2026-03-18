@@ -433,6 +433,8 @@ class HdmiCec:
         self.refreshing = True
         try:
             for device in self.devices:
+                if device == self.device_id: continue
+                
                 if now < self._power_debounce_until.get(device, 0.0):
                     LOGGER.debug('Skipping CEC refresh for device %d: power debounce active', device)
                     continue
