@@ -1,6 +1,7 @@
 name: "HDMI-CEC MQTT Bridge"
-description: "Connecting HDMI-CEC devices to your home automation system."
-version: "1.0.1"
+description: "HDMI-CEC is a communication protocol that allows devices connected via HDMI to exchange control commands. Integrate your AV devices into Home Assistant automations."
+url: "https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app"
+version: "1.0.5"
 slug: "cec_mqtt_bridge"
 init: false
 arch:
