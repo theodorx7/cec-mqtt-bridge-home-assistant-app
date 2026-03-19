@@ -27,9 +27,9 @@ configuration:
        MQTT client/device name used by this add-on.
 
   ha_discovery:
-    name: Create sensors "Last Received CEC" and "Last Sent CEC"
+    name: Create sensors "Last Received Raw Command" and "Last Sent Raw Command"
     description: >-
-       Enable automatic creation/removal of Home Assistant sensor entities via MQTT Discovery
+       Enable automatic creation/removal of Home Assistant sensor entities
 
   cec_port:
     name: CEC adapter port
