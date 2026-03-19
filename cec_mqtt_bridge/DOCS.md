@@ -113,7 +113,7 @@ Request the AVR power status - RAW command.
 ```
 action: mqtt.publish
 data:
-  topic: cec-mqtt/cec/tx
+  topic: cec-mqtt/cec/tx/set
   payload: "15:8F"
 ```
 
@@ -127,7 +127,7 @@ data:
 | `prefix`/cec/device/`laddr`/power/set | `on` / `off`                  | Turn on/off device with with logical address `laddr` (0-14).  |
 | `prefix`/cec/audio/volume/set     | `integer (0-100)` / `up` / `down` | Sets the volume level of the audio system to a specific level or up/down. |
 | `prefix`/cec/audio/mute/set       | `on` / `off`                      | Mute/Unmute the the audio system.                                         |
-| `prefix`/cec/tx | `raw CEC command string(s)`                         | Send the specified raw CEC command string(s) to the CEC bus. You can specify multiple commands by separating them with a comma. Example: `cec/tx 15:44:41,15:45`. |
+| `prefix`cec/tx/set | `raw CEC command string(s)`                         | Send the specified raw CEC command string(s) to the CEC bus. You can specify multiple commands by separating them with a comma. Example: `cec/tx 15:44:41,15:45`. |
 
 ### The bridge publishes to the following topics:
 
@@ -146,4 +146,4 @@ data:
 | `prefix`/cec/audio/volume_native     | `integer (0-volume_correction)` / `unknown`   | Report audio volume in the AVR native scale after applying `volume_correction`. Useful when you need the device-specific absolute volume range instead of normalized or percent-based volume. |
 | `prefix`/cec/audio/mute              | `on` / `off`                      | Report mute status of the audio system.          |
 | `prefix`/cec/rx                      | `raw CEC command string`          | Notify that a raw CEC command string was received.              |
-
+| `prefix`/cec/tx | `raw CEC command string` | Notify that a raw CEC command string was sent to the CEC bus, including commands triggered internally by the bridge and commands received via `cec/tx/set`. |
