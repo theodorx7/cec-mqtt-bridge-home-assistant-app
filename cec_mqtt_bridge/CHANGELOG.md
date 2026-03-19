@@ -1,8 +1,19 @@
-## 1.0.5
-- Optimization and refactoring: reduced redundant requests and unnecessary logical operations
-- Improved stability
-- Improved device power state update speed and anti-bounce logic
-- Fixed an issue where incoming codes from the CEC bus might not be delivered to `prefix/cec/rx` and `sensor.hdmi_cec_mqtt_bridge_last_received_cec`
+## 2.0.0
+### ⚠️ Breaking Changes
+- Added a new MQTT command topic `cec/tx/set` for sending raw CEC commands. The `cec/tx` topic, which was previously used for this purpose, now publishes state only.
+- The `Last Received CEC` and `Last Sent CEC` sensors were renamed to `Received` and `Sent`. The entity names and `unique_id`s were also changed.
+
+### Added
+- The `prefix/cec/tx` topic and the `Sent` sensor now expose all system commands, not only commands sent manually.
+- Added a new, improved method for detecting HDMI-CEC Bus connection status (`online` / `offline`).
+
+### Improved
+- Improved devices power state update speed and debounce logic.
+- Reduced redundant requests and unnecessary logical operations.
+
+### Fixed
+- Fixed an issue where some incoming CEC bus messages could be intermittently missing from the `prefix/cec/rx` topic and the `Received` sensor.
+
 
 ## 1.0.1
 This project is based on `bridge.py` and `hdmicec.py` from [`michaelarnauts`](https://github.com/michaelarnauts/cec-mqtt-bridge) → [`ballle98`](https://github.com/ballle98/cec-mqtt-bridge). Since the goal was to create a solution tailored specifically to Home Assistant, the logic of the original `cec-mqtt-bridge` had to be significantly reworked.
