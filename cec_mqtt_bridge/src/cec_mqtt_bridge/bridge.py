@@ -41,11 +41,7 @@ class Bridge:
 
         def mqtt_on_message(client: mqtt.Client, userdata, message):
             """Run mqtt callback in a separate thread."""
-            thread = threading.Thread(
-                target=self.mqtt_on_message,
-                args=(client, userdata, message),
-                daemon=True,
-            )
+            thread = threading.Thread(target=self.mqtt_on_message, args=(client, userdata, message), daemon=True)
             thread.start()
 
         # Setup MQTT
@@ -107,7 +103,7 @@ class Bridge:
             (f"{self.mqtt_prefix}/cec/device/+/power/set", 0),
             (f"{self.mqtt_prefix}/cec/audio/volume/set", 0),
             (f"{self.mqtt_prefix}/cec/audio/mute/set", 0),
-            (f"{self.mqtt_prefix}/cec/tx", 0),
+            (f"{self.mqtt_prefix}/cec/tx/set", 0),
             (f"{self.mqtt_prefix}/cec/refresh", 0),
             (f"{self.mqtt_prefix}/cec/scan", 0),
         ])
@@ -120,9 +116,7 @@ class Bridge:
             self._ha_clear_optional_device_discovery()
         
         threading.Thread(
-            target=lambda: (self.scan(), self.cec_class.publish_status()),
-            daemon=True,
-        ).start()
+            target=lambda: (self.scan(), self.cec_class.publish_status(force=True)), daemon=True).start()
         
     def mqtt_publish(self, topic, message=None, qos=0, retain=True):
         """Publish an MQTT message under the configured bridge prefix"""
@@ -218,7 +212,6 @@ class Bridge:
 
             self.cec_class._publish_audio_status(self.cec_class.cec_client.AudioStatus())
         finally:
-            self.cec_class._scan_cooldown_until = time.monotonic() + 10.0
             self.cec_class.scanning = False
     
     def _ha_publish_core_device_discovery(self) -> None:
@@ -352,7 +345,7 @@ class Bridge:
         rx_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Last Received CEC ({self.ha_instance_label})",
+            "name": f"Received ({self.ha_instance_label})",
             "unique_id": self.ha_optional_entity_ids["rx"],
             "state_topic": f"{self.mqtt_prefix}/cec/rx",
             "availability": availability,
@@ -363,7 +356,7 @@ class Bridge:
         tx_payload = {
             "device": device_ctx,
             "origin": origin_ctx,
-            "name": f"Last Sent CEC ({self.ha_instance_label})",
+            "name": f"Sent ({self.ha_instance_label})",
             "unique_id": self.ha_optional_entity_ids["tx"],
             "state_topic": f"{self.mqtt_prefix}/cec/tx",
             "availability": availability,
@@ -402,18 +395,51 @@ class Bridge:
             if not message.topic.startswith(prefix):
                 LOGGER.warning("Unexpected MQTT topic: %s", message.topic)
                 return
-
+    
             topic = message.topic[len(prefix):].split('/')
             action = message.payload.decode()
             LOGGER.debug("Command received: %s (%s)", topic, message.payload)
-
-            if topic[0] != 'cec':
+    
+            if not topic or topic[0] != 'cec':
                 return
-
-            if topic[1] == 'device':
-                if topic[3] != 'power':
+    
+            if topic[1] == 'refresh':
+                self.cec_class.refresh()
+                return
+    
+            if topic[1] == 'scan':
+                self.scan()
+                return
+    
+            if topic[1:3] == ['tx', 'set']:
+                for command in action.split(','):
+                    command = command.strip()
+                    if command:
+                        self.cec_class.tx_command(command)
+                return
+    
+            if topic[1:3] == ['audio', 'mute']:
+                if action == 'on':
+                    self.cec_class.volume_mute()
                     return
-
+                if action == 'off':
+                    self.cec_class.volume_unmute()
+                    return
+                raise ValueError(f"Unknown volume command: {topic} {action}")
+    
+            if topic[1:3] == ['audio', 'volume']:
+                if action == 'up':
+                    self.cec_class.volume_up()
+                    return
+                if action == 'down':
+                    self.cec_class.volume_down()
+                    return
+                if action.isdigit() and int(action) <= 100:
+                    self.cec_class.volume_set(int(action))
+                    return
+                raise ValueError(f"Unknown volume command: {topic} {action}")
+    
+            if len(topic) >= 4 and topic[1] == 'device' and topic[3] == 'power':
                 device = int(topic[2])
                 if action == 'on':
                     self.cec_class.power_on(device)
@@ -422,46 +448,7 @@ class Bridge:
                     self.cec_class.power_off(device)
                     return
                 raise ValueError(f"Unknown power command: {topic} {action}")
-
-            if topic[1] == 'audio':
-                if topic[2] == 'volume':
-                    if action == 'up':
-                        self.cec_class.volume_up()
-                        return
-                    if action == 'down':
-                        self.cec_class.volume_down()
-                        return
-                    if action.isdigit() and int(action) <= 100:
-                        self.cec_class.volume_set(int(action))
-                        return
-                    raise ValueError(f"Unknown volume command: {topic} {action}")
-
-                if topic[2] == 'mute':
-                    if action == 'on':
-                        self.cec_class.volume_mute()
-                        return
-                    if action == 'off':
-                        self.cec_class.volume_unmute()
-                        return
-                    raise ValueError(f"Unknown volume command: {topic} {action}")
-
-                return
-
-            if topic[1] == 'tx':
-                for command in action.split(','):
-                    command = command.strip()
-                    if command:
-                        self.cec_class.tx_command(command)
-                return
-
-            if topic[1] == 'refresh':
-                self.cec_class.refresh()
-                return
-
-            if topic[1] == 'scan':
-                self.scan()
-                return
-
+    
         except Exception:
             LOGGER.exception(
                 "Failed to process MQTT message: topic=%s payload=%s",
@@ -471,8 +458,9 @@ class Bridge:
 
     def cleanup(self):
         """Terminates the connection"""
-        cec_info = self.mqtt_publish('cec/status', 'offline', qos=1, retain=True)
-        cec_info.wait_for_publish(timeout=2)
+        cec_info = self.cec_class.publish_status('offline', force=True)
+        if cec_info is not None:
+            cec_info.wait_for_publish(timeout=2)
 
         if not self.ha_optional_entities_enabled:
             self._ha_clear_optional_device_discovery(wait=True)
@@ -499,6 +487,12 @@ def main():
     
     signal.signal(signal.SIGTERM, _signal_handler)
     signal.signal(signal.SIGINT, _signal_handler)
+
+    def _heartbeat_loop():
+        while not stop_event.wait(30):
+            bridge.cec_class.heartbeat()
+    
+    threading.Thread(target=_heartbeat_loop, daemon=True).start()
     
     refresh_delay = int(bridge.config["cec_refresh"])
     if 0 < refresh_delay < 10:
@@ -508,12 +502,10 @@ def main():
 
     try:
         while not stop_event.wait(refresh_delay or 3600):
-            # Refresh CEC state
             if refresh_delay:
                 bridge.cec_class.refresh()
     finally:
         bridge.cleanup()
-
 
 if __name__ == '__main__':
     main()
