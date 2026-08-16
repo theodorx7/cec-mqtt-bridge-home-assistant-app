@@ -1,4 +1,4 @@
-[![Hits](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app.svg?style=for-the-badge)](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app/)
+[![Hits](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app.svg?style=for-the-badge&color=555555)](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app/)
 
 Home Assistant App: HDMI-CEC MQTT Bridge
 ========================================
