@@ -1,11 +1,11 @@
+[![Hits](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app.svg?style=for-the-badge)](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app/)
+
+Home Assistant App: HDMI-CEC MQTT Bridge
+========================================
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
-![Views](https://visitor-badge.laobi.icu/badge?page_id=theodorx7.cec-mqtt-bridge-home-assistant-app)
-
-Home Assistant App: HDMI-CEC MQTT Bridge
-========================================
 
 HDMI-CEC is a communication protocol that allows devices connected via HDMI to exchange control commands. Integrate your AV devices into Home Assistant automations.
 
