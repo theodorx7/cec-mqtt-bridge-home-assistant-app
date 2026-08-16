@@ -1,4 +1,6 @@
-[![Hits](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app.svg?style=for-the-badge&color=555555)](https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app/)
+<a href="https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app/">
+  <img align="right" alt="Hits" src="https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app.svg?style=for-the-badge&color=555555">
+</a>
 
 Home Assistant App: HDMI-CEC MQTT Bridge
 ========================================
