@@ -10,8 +10,8 @@
   <a href="https://boosty.to/fedorx/donate"><img src="https://img.shields.io/static/v1?label=BOOSTY&message=DONATE&color=8b8b8b&labelColor=ef7729&logo=boosty&style=for-the-badge&logoColor=white" alt="Boosty"></a>&thinsp;<a href=".github/DONATE.md"><img src="https://img.shields.io/badge/USDT-26A17B?style=for-the-badge&logo=tether&logoColor=white" alt="USDT TRC20"></a>
 </div>
 
-HDMI-CEC is a communication protocol that allows devices connected via HDMI to exchange control commands.  
-Integrate your AV devices into Home Assistant automations.
+HDMI-CEC lets your HDMI devices control each other.  
+Easily integrate your TV and audio equipment into Home Assistant automations.
 
 ## Features
  - Home Assistant entities for control power, volume and mute (complete set for a media player entity)
