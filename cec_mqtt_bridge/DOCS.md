@@ -155,5 +155,5 @@ data:
 
 
 ## ❤️ Support the project
-<a href=".github/DONATE.md"><img src="https://img.shields.io/static/v1?label=SUPPORT&message=USDT%20&labelColor=555&color=26A17B&style=for-the-badge" alt="USDT TRC20"></a> &thinsp;&thinsp; <a href="https://donate.stream/donate_6a8404d5ea133"><img src="https://img.shields.io/badge/DONATE.steam-fc0?style=for-the-badge&logo=heart&logoColor=white" alt="DONAT.stream"></a>
+<a href="https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app/blob/main/.github/DONATE.md"><img src="https://img.shields.io/static/v1?label=SUPPORT&message=USDT%20&labelColor=555&color=26A17B&style=for-the-badge" alt="USDT TRC20"></a> &thinsp;&thinsp; <a href="https://donate.stream/donate_6a8404d5ea133"><img src="https://img.shields.io/badge/DONATE.steam-fc0?style=for-the-badge&logo=heart&logoColor=white" alt="DONAT.stream"></a>
 
