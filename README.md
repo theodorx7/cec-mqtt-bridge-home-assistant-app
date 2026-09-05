@@ -30,16 +30,16 @@ Easily integrate your TV and audio equipment into Home Assistant automations.
 ## Dependencies
 MQTT broker [Mosquitto](https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md)
 
-## Install
-### Click on the button
+
+## Installation
+### Click the button
 [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](
-https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftheodorx7%2Fcec-mqtt-bridge-home-assistant-app
+https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app
 )
-### Or perform the steps manually
-1. Navigate in your Home Assistant frontend to <kbd>Settings</kbd> → <kbd>Apps</kbd> → <kbd>Install App (Bottom Right)</kbd>.
+### Or follow the manual steps
+1. Navigate in your Home Assistant frontend to <kbd>Settings</kbd> → <kbd>Apps</kbd> → <kbd>Install App</kbd> (bottom right).
 2. Click the 3-dots menu at upper right <kbd>⋮</kbd> → <kbd>Repositories</kbd> and add this repository's URL: [https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app](https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app)
 3. Refresh the page and find the "HDMI-CEC MQTT Bridge" app.
-
 
 ## Configuring the CEC port
 If you do not specify a port in the settings, the application will launch the libCEC adapter auto-detection feature (DetectAdapters) and open the first cec-adapter it finds.
