@@ -35,7 +35,7 @@ MQTT broker [Mosquitto](https://github.com/home-assistant/addons/blob/master/mos
 
 
 
-### ❤️ Support the project
+### Support the project
 [![DONAT.stream](https://img.shields.io/badge/DONATE.steam-fc0?style=for-the-badge&logo=heart&logoColor=white)](https://donate.stream/donate_6a8404d5ea133)  
 
 ![USDT](https://img.shields.io/badge/USDT-26A17B?style=for-the-badge&logo=tether&logoColor=white)  
