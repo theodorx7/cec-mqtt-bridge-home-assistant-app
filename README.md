@@ -7,7 +7,7 @@
 <h2 align="left">Home Assistant App: HDMI-CEC MQTT Bridge</h2>
 
 <div align="right">
-  <a href=".github/DONATE.md"><img src="https://img.shields.io/static/v1?label=SUPPORT&message=USDT%20&labelColor=555&color=26A17B&style=for-the-badge" alt="USDT TRC20"></a> &thinsp; <a href="https://donate.stream/donate_6a8404d5ea133"><img src="https://img.shields.io/badge/DONATE.steam-fc0?style=for-the-badge&logo=heart&logoColor=white" alt="DONAT.stream"></a>
+  <a href="#donate"><img src="https://img.shields.io/static/v1?label=DONATE&message=USDT%20&labelColor=555&color=26A17B&style=for-the-badge" alt="DONATE USDT"></a> &thinsp; <a href="https://donate.stream/donate_6a8404d5ea133"><img src="https://img.shields.io/badge/DONATE.steam-fc0?style=for-the-badge&logo=heart&logoColor=white" alt="DONAT.stream"></a>
 </div>
 
 HDMI-CEC lets your HDMI devices control each other.  
@@ -164,9 +164,18 @@ data:
 | `prefix`/cec/tx | `raw CEC command string` | Notify that a raw CEC command string was sent to the CEC bus, including commands triggered internally by the bridge and commands received via `cec/tx/set`. |
 
 
-## ❤️ Support the project
-<a href=".github/DONATE.md"><img src="https://img.shields.io/static/v1?label=SUPPORT&message=USDT%20&labelColor=555&color=26A17B&style=for-the-badge" alt="USDT TRC20"></a> &thinsp;&thinsp; <a href="https://donate.stream/donate_6a8404d5ea133"><img src="https://img.shields.io/badge/DONATE.steam-fc0?style=for-the-badge&logo=heart&logoColor=white" alt="DONAT.stream"></a>
 
+
+<a name="donate"></a>
+## ❤️ Support the project
+[![DONAT.stream](https://img.shields.io/badge/DONATE.steam-fc0?style=for-the-badge&logo=heart&logoColor=white)](https://donate.stream/donate_6a8404d5ea133)  
+
+![DONATE USDT](https://img.shields.io/badge/USDT-26A17B?style=for-the-badge&logo=tether&logoColor=white)  
+TRC20 — TQrwpY2LWF96YBbBSZZawRqQ6j9K4PzPQo   
+TON — EQBetln-nWakoK3LaTOn8l8oqnhNZgbVMHq_neSPPA6tS6nS  
+POLYGON — 0x8051a1cf7a3b41221d723f7eae77d59d14fb275b     
+ETHEREUM — 0x963798c6219b4df6442192be1c89a8b852cc4830   
+BEP20 — 0x2a1581bcbd2dc64b9d0f494c636d1d5dacb898e6  
 
 <a href="https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app/">
   <img align="right" alt="Hits" src="https://hits.sh/github.com/theodorx7/cec-mqtt-bridge-home-assistant-app.svg?style=for-the-badge&color=555555">
