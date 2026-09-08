@@ -1,7 +1,7 @@
 name: "HDMI-CEC MQTT Bridge"
 description: "HDMI-CEC is a communication protocol that allows devices connected via HDMI to exchange control commands. Integrate your AV devices into Home Assistant automations."
 url: "https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app"
-version: "2.0.0"
+version: "2.0.2"
 slug: "cec_mqtt_bridge"
 init: false
 arch:
@@ -23,13 +23,10 @@ options:
   mqtt_name: "cec-bridge"
   mqtt_user: ""
   mqtt_password: ""
-
-  ha_discovery: true
-  
   cec_name: "CEC Bridge"
   cec_refresh: 10
   cec_devices: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14"
-
+  ha_discovery: true
   debug: false
 
 schema:
@@ -40,12 +37,10 @@ schema:
   mqtt_password: password
   mqtt_prefix: str?
   mqtt_name: str?
-  ha_discovery: bool
-
   cec_port: str?
   cec_devices: str?
   cec_name: str?
   cec_refresh: int(10,)
   volume_correction: int(1,100)
-
+  ha_discovery: bool
   debug: bool
