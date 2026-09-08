@@ -56,4 +56,5 @@ configuration:
     description: >-
        Specify the maximum value of your AVR’s native volume scale so volume control works correctly on the 0–100% scale.
     
-
+  debug:
+    name: Debug logging
