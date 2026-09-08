@@ -1,7 +1,5 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
-
-ARG LIBCEC_VERSION
+FROM ghcr.io/home-assistant/base:latest
+ARG LIBCEC_VERSION=8.1.7
 
 WORKDIR /usr/src
 
@@ -10,14 +8,12 @@ RUN \
         python3 \
         py3-paho-mqtt \
         eudev-libs \
-        p8-platform \
         ca-certificates \
     && apk add --no-cache --virtual .build-dependencies \
         build-base \
         cmake \
         eudev-dev \
         git \
-        p8-platform-dev \
         swig \
         linux-headers \
         python3-dev \
@@ -28,6 +24,8 @@ RUN \
     && cmake \
         -DCMAKE_INSTALL_PREFIX:PATH=/usr \
         -DHAVE_LINUX_API=1 \
+        -DDISABLE_CLIENT=1 \
+        -DDISABLE_STATIC=1 \
         .. \
     && make -j$(nproc) \
     && make install \
@@ -35,9 +33,18 @@ RUN \
     && apk del --no-cache .build-dependencies \
     && rm -rf /usr/src/*
 
-COPY src/ /app/src/
-
+COPY cec_mqtt_bridge/ /app/cec_mqtt_bridge/
+COPY run.sh /
+RUN chmod a+x /run.sh
 WORKDIR /
-COPY rootfs /
 
-RUN chmod +x /etc/services.d/cec_mqtt_bridge/run
+LABEL \
+    io.hass.version="2.0.2" \
+    io.hass.type="app" \
+    io.hass.arch="aarch64|amd64" \
+    org.opencontainers.image.title="Home Assistant App: HDMI-CEC MQTT Bridge" \
+    org.opencontainers.image.description="Connecting HDMI-CEC devices to your home automation system." \
+    org.opencontainers.image.source="https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app" \
+    org.opencontainers.image.licenses="Unlicense"
+
+CMD ["/run.sh"]
