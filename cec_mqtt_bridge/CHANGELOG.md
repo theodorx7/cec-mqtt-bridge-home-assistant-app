@@ -1,7 +1,7 @@
 ## 2.0.2
 ### Changed
 - Updated libCEC library from 7.1.1 to 8.1.7.
-- Updated add-on structure to meet current Home Assistant App standards.
+- Simplified project structure and build process.
 
 ## 2.0.0
 ### ⚠️ Breaking Changes
