@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+
+set -e
+bashio::log.info "Starting HDMI-CEC MQTT Bridge..."
+export PYTHONPATH="/app/"
+exec python3 -u -m cec_mqtt_bridge.bridge
