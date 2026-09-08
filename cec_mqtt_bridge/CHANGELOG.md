@@ -1,3 +1,8 @@
+## 2.0.2
+### Changed
+- Updated libCEC library from 7.1.1 to 8.1.7.
+- Updated add-on structure to meet current Home Assistant App standards.
+
 ## 2.0.0
 ### ⚠️ Breaking Changes
 - Added a new MQTT command topic `cec/tx/set` for sending raw CEC commands. The `cec/tx` topic, which was previously used for this purpose, now publishes state only.
