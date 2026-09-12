@@ -45,7 +45,7 @@ LABEL \
     io.hass.type="app" \
     io.hass.arch="aarch64|amd64" \
     io.hass.url="https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app" \
-    org.opencontainers.image.title="HDMI-CEC MQTT Bridge" \
+    org.opencontainers.image.title="Home Assistant App: HDMI-CEC MQTT Bridge" \
     org.opencontainers.image.description="Connecting HDMI-CEC devices to your home automation system." \
     org.opencontainers.image.source="https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app" \
     org.opencontainers.image.licenses="Unlicense"
