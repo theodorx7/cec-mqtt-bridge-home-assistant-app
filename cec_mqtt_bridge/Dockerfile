@@ -41,7 +41,7 @@ WORKDIR /
 LABEL \
     io.hass.name="HDMI-CEC MQTT Bridge" \
     io.hass.description="Connecting HDMI-CEC devices to your home automation system." \
-    io.hass.version="2.0.2" \
+    io.hass.version="${BUILD_VERSION}" \
     io.hass.type="app" \
     io.hass.arch="aarch64|amd64" \
     io.hass.url="https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app" \
