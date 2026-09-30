@@ -24,10 +24,12 @@ Easily integrate your TV and audio equipment into Home Assistant automations.
 ## Dependencies
 MQTT broker [Mosquitto](https://github.com/home-assistant/addons/blob/master/mosquitto/DOCS.md)
 
+<br/>
 
 ## SEE DOCUMENTATION TAB FOR MORE DETAILS
 
 
+<br/>
 
 ### Support the project
 [![DONAT.stream](https://img.shields.io/badge/DONAT.stream-fc0?style=for-the-badge&logo=heart&logoColor=white)](https://donate.stream/donate_6a8404d5ea133)  
