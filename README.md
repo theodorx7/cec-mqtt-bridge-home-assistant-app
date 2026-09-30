@@ -164,7 +164,7 @@ data:
 | `prefix`/cec/tx | `raw CEC command string` | Notify that a raw CEC command string was sent to the CEC bus, including commands triggered internally by the bridge and commands received via `cec/tx/set`. |
 
 
-
+<br/>
 
 <a name="donate"></a>
 ## Support the project
