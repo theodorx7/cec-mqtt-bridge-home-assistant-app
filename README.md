@@ -166,7 +166,7 @@ data:
 
 <br/>
 
-<a name="donate"></a>
+<a id="donate"></a>
 ## Support the project
 [![DONAT.stream](https://img.shields.io/badge/DONAT.stream-fc0?style=for-the-badge&logo=heart&logoColor=white)](https://donate.stream/donate_6a8404d5ea133)  
 
