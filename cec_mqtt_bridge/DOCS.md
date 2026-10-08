@@ -4,15 +4,6 @@
   <a href="https://github.com/theodorx7/cec-mqtt-bridge-home-assistant-app#donate"><img src="https://img.shields.io/static/v1?label=DONATE&message=USDT%20&labelColor=555&color=26A17B&style=for-the-badge" alt="DONATE USDT"></a> &thinsp; <a href="https://donate.stream/donate_6a8404d5ea133"><img src="https://img.shields.io/badge/DONAT.stream-fc0?style=for-the-badge&logo=heart&logoColor=white" alt="DONAT.stream"></a>
 </div>
 
-HDMI-CEC lets your HDMI devices control each other.  
-Easily integrate your TV and audio equipment into Home Assistant automations.
-
-## Features
- - Home Assistant entities for control power, volume and mute (complete set for a media player entity)
- - Receive all raw HDMI-CEC codes from the CEC bus and use them as triggers in automations.
- - Power, volume (specific/up/down), and mute/unmute control and state feedback via MQTT
- - Send any custom raw HDMI-CEC commands directly to the CEC bus via MQTT
-
 ## Supported hardware
 ### Raspberry Pi 3 / 4 / 5
 - **RPi 4/5 limitation:** connection only via HDMI0 port (closest to the power connector).
